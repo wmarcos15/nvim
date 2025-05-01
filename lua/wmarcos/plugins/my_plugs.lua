@@ -35,16 +35,34 @@ require("lazy").setup({
 		end,
 	},
 
-
 	-- snippets
 	"L3MON4D3/LuaSnip", --snippet engine,
 	"rafamadriz/friendly-snippets", -- a bunch of snippets to use,
 
 	-- LSP
-	"neovim/nvim-lspconfig", -- enable LSP,,
-	"williamboman/mason.nvim", -- simple to use language server installer,
-	"williamboman/mason-lspconfig.nvim", -- simple to use language server installer,
-	'jose-elias-alvarez/null-ls.nvim',  -- LSP diagnostics and code actions
+	{
+		"neovim/nvim-lspconfig",
+		lazy = true,
+	},
+
+	{
+		"williamboman/mason.nvim",
+		config = true,
+	},
+
+	{
+		"williamboman/mason-lspconfig.nvim",
+		dependencies = {
+			"williamboman/mason.nvim",
+			"neovim/nvim-lspconfig",
+		},
+		config = function()
+			require("mason-lspconfig").setup({
+				ensure_installed = { "clangd" },
+			})
+			require("wmarcos.config.lsp")  -- <- External config here
+		end,
+	},
 
 	{
 		"theprimeagen/harpoon",
@@ -116,6 +134,9 @@ require("lazy").setup({
 				desc = "Quickfix List (Trouble)",
 			},
 		},
+		config = function()
+			require("wmarcos.trouble")
+		end,
 	},
 
 	{
