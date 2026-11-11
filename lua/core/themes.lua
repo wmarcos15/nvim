@@ -20,9 +20,10 @@
 --      highlights   optional function(ctx) returning { Group = { fg=, bg=, ... } }
 --                   overrides, applied after the colorscheme
 --      statusline   "classic" | "slant" | "minimal" | "hud"   (see M.statuslines)
---      cursor       optional { normal=, insert=, visual=, error= } hex colours:
---                   the cursor changes colour with the mode, and turns
---                   `error` when the buffer has an error (lua/core/cursor.lua).
+--      cursor       optional { normal=, insert=, visual=, warn=, error=, busy= }
+--                   hex colours: the cursor changes colour with the mode,
+--                   with warnings and errors in the buffer, and while
+--                   something is working (lua/core/cursor.lua).
 --                   The Orb draws itself in the cursor's colour
 --      docs         optional colours for the keymap docs page, e.g.
 --                   { bg = "#101014" }. Anything left out is read from the
@@ -143,7 +144,11 @@ M.slots = {
         end,
         statusline = "hud",
         -- cursor colour by mode; the background dial follows it
-        cursor = { normal = "#5ef1ff", insert = "#ffb86b", visual = "#8f9eff", error = "#ff6e5e" },
+        -- (busy must stay #bd5eff: that colour is the Orb's "working" signal)
+        cursor = {
+            normal = "#5ef1ff", insert = "#ffb86b", visual = "#8f9eff",
+            warn = "#f1ff5e", error = "#ff6e5e", busy = "#bd5eff",
+        },
         docs = { bg = "#16181a", accent = "#5ef1ff", accent2 = "#ffbd5e" },
     },
 

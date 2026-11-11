@@ -87,8 +87,9 @@ preview and the `orb` shell command); this config is one of its clients.
 - Slot 2 shows the orb, slots 1 and 3 hide it, and quitting Neovim hands the
   terminal back as the `orb` command left it. See `lua/core/orb.lua`.
 - The orb takes the cursor's colour, which slot 2 changes with the mode (cyan
-  normal, amber insert, indigo visual) and turns red in normal mode while the
-  file has an error from a language server or linter. See `lua/core/cursor.lua`.
+  normal, amber insert, indigo visual). In normal mode it also turns yellow
+  while the file has a warning, red for an error, and violet with a spinner
+  while a run / build or a language server is working. See `lua/core/cursor.lua`.
 - `:OrbInfo` shows whether everything it needs is in place. In iTerm or any
   other terminal, or without the orb project, slot 2 uses a solid background.
 

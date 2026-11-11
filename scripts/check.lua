@@ -151,9 +151,16 @@ for i, slot in ipairs(themes.slots) do
         local broken = cursor.normal_color()
         vim.wait(100)
         local group_used = vim.o.guicursor:find("ThemeCursorError", 1, true) ~= nil
+        vim.diagnostic.set(ns, 0, { { lnum = 0, col = 0, message = "x", severity = vim.diagnostic.severity.WARN } })
+        local warned = cursor.state()
+        cursor.busy("check", true)
+        local busy = cursor.state()
+        cursor.busy("check", false)
         vim.diagnostic.reset(ns, 0)
         report(clean == slot.cursor.normal and broken == slot.cursor.error and group_used and cursor.normal_color() == clean,
             ("theme slot %d: cursor turns red on an error and back"):format(i), ("%s -> %s"):format(clean, broken))
+        report(warned == "warn" and busy == "busy" and cursor.state() == "normal",
+            ("theme slot %d: cursor shows warnings and working"):format(i), ("%s, %s"):format(warned, busy))
         vim.cmd("bwipeout!")
     end
 end

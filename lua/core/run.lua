@@ -17,7 +17,11 @@ local esc = vim.fn.shellescape
 local function open_terminal(cmd, cwd)
     vim.cmd("botright 12new")
     local buf = vim.api.nvim_get_current_buf()
-    vim.fn.jobstart(cmd, { term = true, cwd = cwd })
+    -- the cursor (and with it the Orb) shows "working" until the command ends
+    local cursor = require("core.cursor")
+    local label = "run:" .. buf
+    cursor.busy(label, true)
+    vim.fn.jobstart(cmd, { term = true, cwd = cwd, on_exit = function() cursor.busy(label, false) end })
     vim.keymap.set("n", "q", "<cmd>bdelete!<cr>", { buffer = buf, silent = true, desc = "Close terminal" })
     vim.cmd("normal! G")
 end
