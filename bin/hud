@@ -2,14 +2,15 @@
 # hud - switch the animated Ghostty background on or off from a shell.
 #
 #   hud            toggle: off if it is showing, on if it is not
-#   hud on         show it, and keep it after Neovim quits or changes theme
+#   hud on         show it and pin it for the terminal: Neovim's theme still
+#                  decides while Neovim runs, and the pin comes back when it quits
 #   hud off        hide it
 #   hud status     say what is going on
 #   hud on NAME    use another shader from ~/.config/nvim/shaders (e.g. cyber-grid)
 #
 # It uses the same switch as the Neovim theme slots (lua/core/terminal.lua):
 # a small file that Ghostty's config includes, plus a reload signal. "on" also
-# leaves a pin file, which tells Neovim not to switch the background off.
+# leaves a pin file, which Neovim restores when it quits.
 set -eu
 
 state="${XDG_STATE_HOME:-$HOME/.local/state}/nvim"
@@ -52,9 +53,9 @@ case "${1:-toggle}" in
     status)
         if showing; then
             echo "on: $(sed -n 's/^custom-shader = //p' "$include")"
-            [ -f "$pin" ] && echo "pinned: stays on when Neovim quits or changes theme" || echo "set by Neovim's theme: goes off with it"
+            [ -f "$pin" ] && echo "pinned: comes back after Neovim quits" || echo "set by Neovim's theme: goes off with it"
         else
             echo "off"
         fi ;;
-    *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

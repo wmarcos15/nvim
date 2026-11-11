@@ -102,8 +102,9 @@ background.
 
 The background belongs to the Ghostty window, not to Neovim, so it also shows
 in plain shell tabs. `bin/hud` switches it from a shell: `hud` toggles,
-`hud on` keeps it on even after Neovim quits or changes theme, `hud off` hides
-it, `hud status` explains. To have it as a command:
+`hud on` pins it for the terminal, `hud off` hides it, `hud status` explains.
+While Neovim runs, its theme slot decides (slots 1 and 3 switch the background
+off even if it is pinned); when Neovim quits, a pinned background comes back. To have it as a command:
 
 ```
 alias hud="$HOME/.config/nvim/bin/hud"

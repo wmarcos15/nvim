@@ -21,10 +21,12 @@ local M = {}
 
 M.include = vim.fn.stdpath("state") .. "/ghostty-theme.conf"
 -- `bin/hud on` (the shell command) leaves this file: the background the user
--- pinned from a terminal. While it exists, Neovim never switches it off.
+-- pinned from a terminal. While Neovim runs, its theme slot decides (a slot
+-- without a shader switches the background off even if it is pinned); when
+-- Neovim quits, the terminal gets its pinned background back.
 M.pin = vim.fn.stdpath("state") .. "/ghostty-theme.pin"
 local shader_dir = vim.fn.stdpath("config") .. "/shaders/"
-local owned = false -- did this Neovim turn the shader on?
+local touched = false -- has this Neovim switched the background, on or off?
 
 local function ghostty_configs()
     local xdg = vim.env.XDG_CONFIG_HOME or vim.fn.expand("~/.config")
@@ -96,7 +98,7 @@ end
 --- Turn on `shader` (a file in shaders/) over background colour `bg`.
 function M.animate(shader, bg)
     if not M.can_animate() then return false end
-    owned = true
+    touched = true
     write({
         "# Written by Neovim (lua/core/terminal.lua). Do not edit.",
         "background = " .. bg,
@@ -106,17 +108,24 @@ function M.animate(shader, bg)
     return true
 end
 
---- Turn the shader off, or back to what `bin/hud on` pinned, if anything.
+--- Turn the shader off (the active theme slot has none).
 function M.reset()
     if not M.can_animate() then return end
-    owned = false
+    touched = true
+    write({})
+end
+
+--- Neovim is quitting: hand the terminal back as `bin/hud` left it, which is
+--- the pinned background if there is one and no shader otherwise.
+function M.restore()
+    if not (touched and M.can_animate()) then return end
     local ok, pinned = pcall(vim.fn.readfile, M.pin)
     write(ok and pinned or {})
 end
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("user_terminal_bg", { clear = true }),
-    callback = function() if owned then M.reset() end end,
+    callback = M.restore,
 })
 
 vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
@@ -125,7 +134,7 @@ vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
         "Ghostty include:     config-file = ?" .. M.include,
         "Included by Ghostty: " .. tostring(M.linked()),
         "Animated background: " .. (M.can_animate() and "available" or "not available here (solid background is used)"),
-        "Pinned from a shell: " .. (vim.uv.fs_stat(M.pin) and "yes (bin/hud off to release)" or "no"),
+        "Pinned from a shell: " .. (vim.uv.fs_stat(M.pin) and "yes (comes back when Neovim quits; bin/hud off to release)" or "no"),
         "Ghostty process:     " .. tostring(find_ghostty() or "not found among this Neovim's parents"),
     }, "\n"))
 end, { desc = "Show whether the animated theme background can run in this terminal" })
