@@ -241,7 +241,9 @@ function M.apply(i, opts)
     M.statusline()
     if slot.cursor then require("core.cursor").enable(slot.cursor) else require("core.cursor").disable() end
     local orb = require("core.orb")
-    if not (slot.orb and orb.show((slot.docs or {}).bg or "#000000")) then orb.hide() end
+    local showing = slot.orb and orb.show((slot.docs or {}).bg or "#000000") or false
+    if not showing then orb.hide() end
+    require("core.bubble").set_active(showing) -- the orb's speech bubble
     if not opts.temporary then save("slot=" .. i) end
     if not opts.silent then vim.notify(("Theme %d: %s"):format(i, slot.name)) end
     return true
@@ -283,6 +285,7 @@ vim.api.nvim_create_autocmd("ColorScheme", {
         end
         M.current = nil
         require("core.cursor").disable()
+        require("core.bubble").set_active(false)
         save("colorscheme=" .. ev.match)
     end,
 })

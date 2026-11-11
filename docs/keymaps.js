@@ -127,6 +127,7 @@ window.NVIM_DOCS = {
     {"keys":"1 … 8","modes":["n"],"desc":"Open that recent file","group":"Files","where":"on the start screen","tags":"dashboard home welcome"},
     {"keys":"<CR>","modes":["n"],"desc":"Open the recent file on this line","group":"Files","where":"on the start screen","tags":"dashboard home welcome"},
     {"keys":"<leader>th","modes":["n"],"desc":"Toggle inlay hints","group":"Toggles","tags":"types parameter names"},
+    {"keys":"<leader>to","modes":["n"],"desc":"Toggle the Orb's messages (speech bubble)","group":"Toggles","tags":"orb bubble diagnostics error popup hud"},
     {"keys":"<leader>tf","modes":["n"],"desc":"Toggle format on save","group":"Toggles","tags":"autoformat"},
     {"keys":"<leader>tb","modes":["n"],"desc":"Toggle inline git blame","group":"Toggles"},
     {"keys":"<leader>t1","modes":["n"],"desc":"Theme 1: Kanagawa Wave","group":"Themes","tags":"colorscheme colours look switch change"},

@@ -174,6 +174,8 @@ map("n", "<leader>th", function()
     vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled())
     vim.notify("Inlay hints " .. (vim.lsp.inlay_hint.is_enabled() and "on" or "off"))
 end, { desc = "Toggle inlay hints", group = "Toggles", tags = "types parameter names" })
+map("n", "<leader>to", function() require("core.bubble").toggle() end,
+    { desc = "Toggle the Orb's messages (speech bubble)", group = "Toggles", tags = "orb bubble diagnostics error popup hud" })
 map("n", "<leader>tf", function()
     vim.g.format_on_save = not vim.g.format_on_save
     vim.notify("Format on save " .. (vim.g.format_on_save and "on" or "off"))

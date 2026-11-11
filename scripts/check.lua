@@ -11,6 +11,7 @@
 --   * no keymap is a prefix of another (which would cause a timeoutlen delay)
 --   * the keymap docs generate
 --   * all three theme slots apply; cursor colours follow mode and errors
+--   * the orb's speech bubble shows diagnostics
 --   * the start screen opens
 -- Exit code 0 = everything passed. Java is slow the first time (jdtls builds
 -- its workspace), so allow a minute or two.
@@ -165,6 +166,25 @@ for i, slot in ipairs(themes.slots) do
     end
 end
 if before then themes.apply(before, { silent = true, temporary = true }) end
+
+-- The orb's speech bubble
+local bubble = require("core.bubble")
+bubble.set_active(true)
+vim.cmd("enew")
+local bubble_ns = vim.api.nvim_create_namespace("check_bubble")
+vim.diagnostic.set(bubble_ns, 0, { { lnum = 0, col = 0, message = "bubble check", severity = vim.diagnostic.severity.ERROR } })
+vim.wait(300)
+local said, said_level = bubble.showing()
+bubble.say("hello", "info", { source = "check" })
+vim.wait(100)
+local other = bubble.showing()
+bubble.clear("check")
+vim.diagnostic.reset(bubble_ns, 0)
+vim.wait(300)
+report(said ~= nil and said:find("bubble check", 1, true) ~= nil and said_level == "error" and other == "hello" and bubble.showing() == nil,
+    "orb bubble speaks diagnostics, yields to other messages, and goes away", tostring(said))
+bubble.set_active(false)
+vim.cmd("bwipeout!")
 
 -- Start screen
 vim.cmd("tabnew")

@@ -38,6 +38,7 @@ lua/core/
   cursor.lua             cursor colour by mode / on errors (for slots that ask)
   start.lua              the start screen
   orb.lua                shows / hides the Orb background (~/.config/orb)
+  bubble.lua             the Orb's speech bubble (diagnostics, and say())
   run.lua                what "run" and "build" mean per language
   autocmds.lua           small automations (yank flash, restore cursor, ...)
   docs.lua               :KeymapDocs
@@ -90,6 +91,11 @@ preview and the `orb` shell command); this config is one of its clients.
   normal, amber insert, indigo visual). In normal mode it also turns yellow
   while the file has a warning, red for an error, and violet with a spinner
   while a run / build or a language server is working. See `lua/core/cursor.lua`.
+- Under the orb, a speech bubble shows the error or warning on the cursor's
+  line (or else the worst one in the file), typed out as if the orb said it.
+  `Space t o` switches it off and on. Other things can speak through it too:
+  `require("core.bubble").say(text, level, { source = ... })`; see
+  `lua/core/bubble.lua`.
 - `:OrbInfo` shows whether everything it needs is in place. In iTerm or any
   other terminal, or without the orb project, slot 2 uses a solid background.
 
