@@ -6,6 +6,7 @@
 return {
     { "rebelot/kanagawa.nvim", lazy = true },
     { "scottmckendry/cyberdream.nvim", lazy = true },
+    { "Mofiqul/vscode.nvim", lazy = true },
 
     -- Statusline (shape and colours follow the active theme slot)
     {

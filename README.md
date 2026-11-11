@@ -35,6 +35,7 @@ lua/core/
   options.lua            editor settings
   keymaps.lua            EVERY keymap (plus the registry the docs are built from)
   themes.lua             theme slots  <- edit this to add / change themes
+  terminal.lua           animated background switch for Ghostty
   run.lua                what "run" and "build" mean per language
   autocmds.lua           small automations (yank flash, restore cursor, ...)
   docs.lua               :KeymapDocs
@@ -45,6 +46,7 @@ lua/plugins/             one file per area; plugin setup only, no keymaps
   telescope.lua  harpoon.lua  gitsigns.lua  treesitter.lua
   completion.lua  dap.lua  editing.lua  ui.lua
 docs/                    the keymap web page (index.html + generated keymaps.js)
+shaders/                 animated backgrounds (Ghostty) + browser preview
 scripts/check.lua        self-test (see below)
 templates/clangd         starter .clangd for a C/C++ project
 ```
@@ -67,11 +69,33 @@ templates/clangd         starter .clangd for a C/C++ project
 `Space t t` previews every installed colorscheme in Telescope. The last choice
 is remembered.
 
-| Slot | Theme | Look |
+| Slot | Theme | Background |
 |---|---|---|
-| 1 | Kanagawa Wave | the original: transparent, classic statusline |
-| 2 | Cyberdream | futuristic: neon on near-black, angled statusline, borderless pickers |
-| 3 | Kanagawa Dragon | placeholder, meant to be replaced |
+| 1 | Kanagawa Wave | transparent: your terminal's background or image shows through |
+| 2 | Cyberdream (futuristic) | animated neon grid in Ghostty; solid near-black elsewhere |
+| 3 | VS Code Dark | solid neutral grey, easy on the eye |
+
+### The animated background (slot 2)
+
+Neovim cannot draw behind its own text, but Ghostty can run a shader over the
+whole window. `shaders/cyber-grid.glsl` is that shader. When slot 2 is applied
+inside Ghostty, Neovim switches it on (and off again when you change slot or
+quit); see `lua/core/terminal.lua`.
+
+One-time setup: Ghostty must include a small file that Neovim writes. Run
+`:ThemeTerminalInfo` in Neovim and add the `config-file = ?...` line it prints
+to Ghostty's config. In iTerm or any other terminal, slot 2 simply uses a solid
+background.
+
+To tune the animation, edit the constants at the top of the shader. To preview
+it in a browser:
+
+```
+python3 -m http.server --directory ~/.config/nvim/shaders 8766
+```
+
+then open http://127.0.0.1:8766/preview.html. A slot can use any shader in
+`shaders/` through its `shader` field.
 
 ### Adding or changing a theme
 

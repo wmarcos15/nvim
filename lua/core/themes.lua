@@ -10,9 +10,13 @@
 --
 --      name         shown when you switch, and in the keymap docs
 --      colorscheme  what you would type after :colorscheme
---      setup        optional function, runs before the colorscheme is
+--      setup        optional function(ctx), runs before the colorscheme is
 --                   applied; put the plugin's setup({...}) call here
---      highlights   optional function returning { Group = { fg=, bg=, ... } }
+--      shader       optional file in shaders/: an animated background, shown
+--                   when running in Ghostty (lua/core/terminal.lua). setup
+--                   and highlights get ctx.animated = true when it is active,
+--                   so the theme can go transparent only then
+--      highlights   optional function(ctx) returning { Group = { fg=, bg=, ... } }
 --                   overrides, applied after the colorscheme
 --      statusline   "classic" | "slant" | "minimal"   (see M.statuslines)
 --      docs         optional colours for the keymap docs page, e.g.
@@ -68,40 +72,48 @@ M.slots = {
         docs = { bg = "#1F1F28" },
     },
 
-    -- 2 ── futuristic: neon on near-black, angled statusline, borderless pickers
+    -- 2 ── futuristic: neon on near-black, angled statusline, borderless pickers.
+    --      In Ghostty (once linked, see lua/core/terminal.lua) the background is
+    --      the animated shaders/cyber-grid.glsl; anywhere else it is solid.
     {
         name = "Cyberdream",
         colorscheme = "cyberdream",
-        setup = function()
+        shader = "cyber-grid.glsl",
+        setup = function(ctx)
             require("cyberdream").setup({
-                transparent = true,
+                transparent = ctx.animated, -- see-through only when there is something to see
                 italic_comments = true,
                 borderless_pickers = true,
                 terminal_colors = true,
             })
         end,
-        highlights = function()
-            return {
+        highlights = function(ctx)
+            local hl = {
                 CursorLineNr = { fg = "#5ef1ff", bold = true },
                 LineNr       = { fg = "#3c4048" },
                 WinSeparator = { fg = "#3c4048" },
-                FloatBorder  = { fg = "#5ef1ff", bg = "none" },
-                NormalFloat  = { bg = "none" },
                 PmenuSel     = { fg = "#16181a", bg = "#5ef1ff", bold = true },
                 LspInlayHint = { fg = "#7b8496", italic = true },
             }
+            if ctx.animated then
+                hl.NormalFloat = { bg = "none" }
+                hl.FloatBorder = { fg = "#5ef1ff", bg = "none" }
+            end
+            return hl
         end,
         statusline = "slant",
         docs = { bg = "#16181a", accent = "#5ef1ff", accent2 = "#ff5ea0" },
     },
 
-    -- 3 ── reserved for you; Kanagawa's darker, warmer variant until you replace it
+    -- 3 ── mainstream and calm: VS Code's default dark theme, solid background
     {
-        name = "Kanagawa Dragon",
-        colorscheme = "kanagawa-dragon",
-        setup = kanagawa("dragon"),
-        statusline = "minimal",
-        docs = { bg = "#181616" },
+        name = "VS Code Dark",
+        colorscheme = "vscode",
+        setup = function()
+            vim.o.background = "dark"
+            require("vscode").setup({ transparent = false, italic_comments = true })
+        end,
+        statusline = "classic",
     },
 }
 
@@ -147,11 +159,13 @@ end
 
 local function activate(slot)
     applying = true
+    -- ctx.animated: this slot has a shader and the terminal can run it
+    local ctx = { animated = slot.shader ~= nil and require("core.terminal").can_animate() }
     local ok, err = pcall(function()
-        if slot.setup then slot.setup() end
+        if slot.setup then slot.setup(ctx) end
         vim.cmd.colorscheme(slot.colorscheme)
         if slot.highlights then
-            for group, hl in pairs(slot.highlights()) do
+            for group, hl in pairs(slot.highlights(ctx)) do
                 vim.api.nvim_set_hl(0, group, hl)
             end
         end
@@ -174,7 +188,12 @@ function M.apply(i, opts)
         return false
     end
     M.current = i
+    M.current_colors_name = vim.g.colors_name
     M.statusline()
+    local terminal = require("core.terminal")
+    if not (slot.shader and terminal.animate(slot.shader, (slot.docs or {}).bg or "#000000")) then
+        terminal.reset()
+    end
     if not opts.temporary then save("slot=" .. i) end
     if not opts.silent then vim.notify(("Theme %d: %s"):format(i, slot.name)) end
     return true
@@ -201,6 +220,19 @@ vim.api.nvim_create_autocmd("ColorScheme", {
     group = vim.api.nvim_create_augroup("user_theme_persist", { clear = true }),
     callback = function(ev)
         if applying then return end
+        -- Neovim re-runs the current colorscheme by itself when it detects the
+        -- terminal's light/dark background at startup. That is still the same
+        -- slot: keep it, and put the slot's own highlights back.
+        local slot = M.slots[M.current]
+        if slot and ev.match == M.current_colors_name then
+            if slot.highlights then
+                local ctx = { animated = slot.shader ~= nil and require("core.terminal").can_animate() }
+                for group, hl in pairs(slot.highlights(ctx)) do
+                    vim.api.nvim_set_hl(0, group, hl)
+                end
+            end
+            return
+        end
         M.current = nil
         save("colorscheme=" .. ev.match)
     end,
