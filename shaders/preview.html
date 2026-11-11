@@ -37,17 +37,17 @@ function fakeTerminal(w, h) {
   const size = Math.round(15 * devicePixelRatio), lh = Math.round(size * 1.45);
   c.font = `${size}px ui-monospace, Menlo, monospace`; c.textBaseline = "top";
   const code = [
-    ["#bd5eff", "local "], ["#ffffff", "function "], ["#5ea1ff", "apply"], ["#ffffff", "(slot)"], null,
-    ["#7b8496", "    -- switch the theme, then tell the terminal"], null,
-    ["#bd5eff", "    if "], ["#ffffff", "slot.shader "], ["#bd5eff", "then"], null,
-    ["#5ea1ff", "        terminal.animate"], ["#ffffff", "("], ["#5eff6c", '"cyber-grid.glsl"'], ["#ffffff", ")"], null,
-    ["#bd5eff", "    end"], null,
-    ["#5ea1ff", "    vim.notify"], ["#ffffff", "("], ["#5eff6c", '"Theme: "'], ["#ffffff", " .. slot.name)"], null,
-    ["#bd5eff", "end"], null,
+    ["#5ef1ff", "local "], ["#c9dde6", "function "], ["#4da3ff", "apply"], ["#c9dde6", "(slot)"], null,
+    ["#5f7a88", "    -- switch the theme, then tell the terminal"], null,
+    ["#5ef1ff", "    if "], ["#c9dde6", "slot.shader "], ["#5ef1ff", "then"], null,
+    ["#4da3ff", "        terminal.animate"], ["#c9dde6", "("], ["#ffb86b", '"cyber-grid.glsl"'], ["#c9dde6", ")"], null,
+    ["#5ef1ff", "    end"], null,
+    ["#4da3ff", "    vim.notify"], ["#c9dde6", "("], ["#ffb86b", '"Theme: "'], ["#c9dde6", " .. slot.name)"], null,
+    ["#5ef1ff", "end"], null,
   ];
   let x = size * 3.5, y = lh * 2, n = 1;
   const lineNo = () => { c.fillStyle = "#3c4048"; c.fillText(String(n++).padStart(3), size * 0.6, y); };
-  c.fillStyle = "#1e2124"; c.fillRect(0, y + lh * 3, w, lh);        // cursor line
+  c.fillStyle = "#1a2127"; c.fillRect(0, y + lh * 3, w, lh);        // cursor line
   for (let rep = 0; rep < 5; rep++) {
     lineNo();
     for (const tok of code) {
@@ -59,7 +59,7 @@ function fakeTerminal(w, h) {
   c.fillStyle = "#1e2124"; c.fillRect(0, h - lh, w, lh);            // statusline
   c.fillStyle = "#5ef1ff"; c.fillRect(0, h - lh, size * 6, lh);
   c.fillStyle = "#16181a"; c.fillText(" NORMAL", size * 0.4, h - lh + size * 0.2);
-  c.fillStyle = "#7b8496"; c.fillText("lua/core/themes.lua", size * 7, h - lh + size * 0.2);
+  c.fillStyle = "#5f7a88"; c.fillText("lua/core/themes.lua", size * 7, h - lh + size * 0.2);
   return t;
 }
 

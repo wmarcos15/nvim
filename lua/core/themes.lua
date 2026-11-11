@@ -72,7 +72,8 @@ M.slots = {
         docs = { bg = "#1F1F28" },
     },
 
-    -- 2 ── control centre: Cyberdream's neon on near-black, with the interface
+    -- 2 ── control centre: Cyberdream recoloured to the HUD's cyan, blue and
+    --      amber on near-black, with the interface
     --      chrome reduced to thin cyan lines: outlined panels for pickers and
     --      floats, a flat statusline, dim rulers.
     --      In Ghostty (once linked, see lua/core/terminal.lua) the background is
@@ -88,12 +89,32 @@ M.slots = {
                 italic_comments = true,
                 borderless_pickers = false, -- panels get a thin outline instead
                 terminal_colors = true,
+                -- cooler base tones; the syntax colours are set in `highlights`
+                colors = { fg = "#c9dde6", grey = "#5f7a88", blue = "#4da3ff", purple = "#8f9eff", magenta = "#7aa8ff" },
             })
         end,
         highlights = function(ctx)
             local cyan, line, dim = "#5ef1ff", "#2a6f7a", "#3c4048"
             local panel = ctx.animated and "none" or "#16181a"
+            -- Syntax in the HUD's own colours: cyan and blue carry the
+            -- structure, amber and gold mark the literal values.
+            local blue, teal, amber, gold = "#4da3ff", "#7fe0c8", "#ffb86b", "#ffd28a"
+            local steel, indigo = "#6fa8c0", "#8f9eff"
             return {
+                Keyword = { fg = cyan }, Statement = { fg = cyan }, Conditional = { fg = cyan },
+                Repeat = { fg = cyan }, Exception = { fg = cyan }, Label = { fg = cyan },
+                StorageClass = { fg = cyan }, Structure = { fg = cyan }, Typedef = { fg = cyan },
+                Function = { fg = blue },
+                Type = { fg = teal },
+                String = { fg = amber }, Character = { fg = amber },
+                Number = { fg = gold }, Float = { fg = gold }, Boolean = { fg = gold }, Constant = { fg = gold },
+                Operator = { fg = steel },
+                PreProc = { fg = indigo }, Include = { fg = indigo }, Define = { fg = indigo }, Macro = { fg = indigo },
+                Special = { fg = indigo }, SpecialChar = { fg = gold },
+                -- The cursor line is only a faint tint, close enough to the
+                -- background that the shader keeps drawing through it.
+                CursorLine   = { bg = "#1a2127" },
+                Visual       = { bg = "#1f3a47" },
                 -- rulers
                 CursorLineNr = { fg = cyan, bold = true },
                 LineNr       = { fg = dim },

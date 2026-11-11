@@ -106,8 +106,10 @@ vec3 scene(vec2 fragCoord, float t) {
 }
 
 // 1 where the pixel at uv is plain background, 0 on text and coloured cells.
+// The tolerance is wide enough that a faint tint (the theme's cursor line)
+// still counts as background, so the animation is not cut by a solid bar.
 float isBackground(vec2 uv) {
-    return 1.0 - smoothstep(0.02, 0.10, distance(texture(iChannel0, uv).rgb, iBackgroundColor));
+    return 1.0 - smoothstep(0.08, 0.14, distance(texture(iChannel0, uv).rgb, iBackgroundColor));
 }
 
 // How much text is around this pixel, 0..1: two rings of samples, roughly one
