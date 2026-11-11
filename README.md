@@ -79,7 +79,8 @@ is remembered.
 
 Neovim cannot draw behind its own text, but Ghostty can run a shader over the
 whole window. `shaders/hud.glsl` is that shader: a dot matrix, an instrument
-dial and corner brackets, all of which fade out around text.
+dial and corner brackets, all of which fade out around text, plus a small
+flash on each typed character.
 (`shaders/cyber-grid.glsl` is an alternative, a neon grid corridor.) When slot 2 is applied
 inside Ghostty, Neovim switches it on (and off again when you change slot or
 quit); see `lua/core/terminal.lua`.

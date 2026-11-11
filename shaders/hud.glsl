@@ -7,6 +7,7 @@
 //   - an instrument dial at the right-hand side (where code rarely reaches):
 //     tick ring, counter-rotating arc segments, a radar sweep, one amber arc
 //   - thin brackets in the four corners
+//   - a small flash on each character you type (see typed() below)
 //
 // It is meant to sit behind the code, not compete with it:
 //   - it only paints where the terminal shows its background colour, so text,
@@ -20,6 +21,7 @@
 const float INTENSITY = 1.0;   // overall brightness; 0.6 = subtler, 1.5 = louder
 const float SPEED     = 1.0;   // how fast everything turns
 const float CLEAR     = 0.90;  // how much it fades around text: 0 = not at all, 1 = fully
+const float TYPING    = 1.0;   // the flash on typed characters; 0 = off
 const float DIAL_SIZE = 0.30;  // dial radius, as a fraction of the window height
 const float DIAL_X    = 0.40;  // dial centre: distance from the right edge (same unit)
 const vec3  MAIN_COL  = vec3(0.37, 0.95, 1.00);  // cyan
@@ -126,10 +128,35 @@ float textNearby(vec2 fragCoord) {
     return smoothstep(0.0, 1.6, sum);
 }
 
+// A brief flash on the character just typed: a soft glow behind it and two
+// hairlines, above and below, that slide apart and fade in a third of a second.
+// "Typed" means the cursor moved a little to the right on the same row, so
+// stepping right with `l` flashes too, while jumps and deletions do not.
+vec3 typed(vec2 fragCoord) {
+    float h = iCurrentCursor.w;                    // cell height
+    float cw = 0.5 * h;                            // about one cell wide
+    vec2 move = iCurrentCursor.xy - iPreviousCursor.xy;
+    if (h <= 0.0 || move.x <= 0.0 || move.x > 3.2 * cw || abs(move.y) > 0.25 * h) return vec3(0.0);
+
+    float k = (iTime - iTimeCursorChange) / 0.33;
+    if (k < 0.0 || k > 1.0) return vec3(0.0);
+    float fade = (1.0 - k) * (1.0 - k);
+
+    // Centre of the cell the character went into.
+    vec2 d = fragCoord - (iPreviousCursor.xy + vec2(0.5 * move.x, -0.5 * h));
+    float glow = exp(-dot(d, d) / (0.55 * h * h)) * 0.10;
+    float reach = 0.5 * move.x + cw * 1.6 * k;     // the hairlines grow sideways
+    float bars = (1.0 - smoothstep(0.6, 1.6, abs(abs(d.y) - 0.5 * h)))
+               * (1.0 - smoothstep(reach - cw * 0.5, reach, abs(d.x)));
+    return MAIN_COL * (glow + bars * 0.45) * fade * TYPING;
+}
+
 void mainImage(out vec4 fragColor, in vec2 fragCoord) {
     vec2 uv = fragCoord / iResolution.xy;
     vec4 term = texture(iChannel0, uv);
 
+    float bg = isBackground(uv);
     float calm = 1.0 - CLEAR * textNearby(fragCoord);
-    fragColor = vec4(term.rgb + scene(fragCoord, iTime) * isBackground(uv) * calm, term.a);
+    vec3 col = scene(fragCoord, iTime) * calm + typed(fragCoord);
+    fragColor = vec4(term.rgb + col * bg, term.a);
 }

@@ -67,6 +67,7 @@ fetch(file, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(file +
   const frag = `#version 300 es
 precision highp float;
 uniform vec3 iResolution; uniform float iTime; uniform sampler2D iChannel0; uniform vec3 iBackgroundColor;
+uniform vec4 iCurrentCursor; uniform vec4 iPreviousCursor; uniform float iTimeCursorChange;
 out vec4 outColor;
 ${src}
 void main() { mainImage(outColor, gl_FragCoord.xy); }`;
@@ -108,7 +109,15 @@ in vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
   const start = performance.now();
   (function frame() {
     gl.uniform3f(u("iResolution"), canvas.width, canvas.height, 1);
-    gl.uniform1f(u("iTime"), frozen !== null ? +frozen : (performance.now() - start) / 1000);
+    const now = frozen !== null ? +frozen : (performance.now() - start) / 1000;
+    gl.uniform1f(u("iTime"), now);
+    // Fake typing on the cursor line: one character every 0.4 s, 40 per run.
+    const size = Math.round(15 * devicePixelRatio), lh = Math.round(size * 1.45), cw = size * 0.6;
+    const step = Math.floor(now / 0.4), col = step % 40;
+    const cx = c => size * 26 + c * cw, top = canvas.height - lh * 5;   // y is up, as in Ghostty
+    gl.uniform4f(u("iCurrentCursor"), cx(col), top, cw, lh);
+    gl.uniform4f(u("iPreviousCursor"), cx(col - 1), top, cw, lh);
+    gl.uniform1f(u("iTimeCursorChange"), step * 0.4);
     gl.uniform3f(u("iBackgroundColor"), ...BG);
     gl.uniform1i(u("iChannel0"), 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
