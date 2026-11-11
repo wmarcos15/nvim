@@ -176,13 +176,25 @@ vim.diagnostic.set(bubble_ns, 0, { { lnum = 0, col = 0, message = "bubble check"
 vim.wait(300)
 local said, said_level = bubble.showing()
 bubble.say("hello", "info", { source = "check" })
-vim.wait(100)
+vim.wait(300)
 local other = bubble.showing()
+-- It must not cover text: fill the screen's right half and it has to go.
+local long = {}
+for i = 1, vim.o.lines do long[i] = string.rep("x", vim.o.columns - 10) end
+vim.api.nvim_buf_set_lines(0, 0, -1, false, long)
+vim.cmd("doautocmd TextChanged")   -- a script's edits do not announce themselves
+vim.wait(300)
+local crowded = bubble.showing()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+vim.cmd("doautocmd TextChanged")
+vim.wait(300)
+local roomy = bubble.showing()
 bubble.clear("check")
 vim.diagnostic.reset(bubble_ns, 0)
 vim.wait(300)
 report(said ~= nil and said:find("bubble check", 1, true) ~= nil and said_level == "error" and other == "hello" and bubble.showing() == nil,
     "orb bubble speaks diagnostics, yields to other messages, and goes away", tostring(said))
+report(crowded == nil and roomy == "hello", "orb bubble never covers text", ("crowded=%s roomy=%s"):format(tostring(crowded), tostring(roomy)))
 bubble.set_active(false)
 vim.cmd("bwipeout!")
 
