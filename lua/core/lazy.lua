@@ -2,7 +2,7 @@
 
 -- Auto-install lazy.nvim if not present
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-if not vim.loop.fs_stat(lazypath) then
+if not vim.uv.fs_stat(lazypath) then
     vim.fn.system({
         "git",
         "clone",
@@ -22,14 +22,14 @@ require("lazy").setup({
         lazy = false,
     },
     install = {
-        colorscheme = { "kanagawa", "habamax" }, -- fallback if kanagawa not yet installed
+        colorscheme = { "kanagawa", "habamax" },
     },
     checker = {
-        enabled = true,   -- auto-check for plugin updates
-        notify = false,   -- but don't spam notifications
+        enabled = true, -- check for plugin updates in the background
+        notify = false,
     },
     change_detection = {
-        notify = false,   -- don't notify on config change
+        notify = false,
     },
     ui = {
         border = "rounded",

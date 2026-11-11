@@ -1,45 +1,20 @@
 -- lua/plugins/dap.lua
 --
--- C/C++ debugging with nvim-dap + nvim-dap-ui, driven by codelldb
--- (LLVM's LLDB behind the DAP protocol -- the right adapter on macOS,
--- and fine on Linux too). codelldb is installed through Mason.
---
--- Keymaps:
---   <leader>db  toggle breakpoint
---   <leader>dc  continue / start
---   <leader>ds  step over
---   <leader>di  step into
---   <leader>do  step out
---   <leader>du  toggle DAP UI
+-- Debugging with nvim-dap + nvim-dap-ui.
+--   C / C++   codelldb
+--   Python    debugpy
+-- Both adapters are installed by Mason (see `tools` in plugins/lsp.lua).
+-- Keymaps (<leader>d*): lua/core/keymaps.lua. A project's .vscode/launch.json
+-- is picked up automatically.
 return {
     {
         "mfussenegger/nvim-dap",
+        lazy = true, -- loads the first time a <leader>d key is pressed
         dependencies = {
             {
                 "rcarriga/nvim-dap-ui",
                 dependencies = { "nvim-neotest/nvim-nio" },
             },
-            -- Installs debug adapters with Mason (:MasonInstall codelldb).
-            {
-                "jay-babu/mason-nvim-dap.nvim",
-                dependencies = { "williamboman/mason.nvim" },
-                opts = {
-                    ensure_installed = { "codelldb" },
-                    automatic_installation = true,
-                    -- No automatic adapter wiring -- codelldb is configured
-                    -- explicitly below.
-                    handlers = {},
-                },
-            },
-        },
-
-        keys = {
-            { "<leader>db", function() require("dap").toggle_breakpoint() end, desc = "DAP: toggle breakpoint" },
-            { "<leader>dc", function() require("dap").continue() end,          desc = "DAP: continue / start" },
-            { "<leader>ds", function() require("dap").step_over() end,         desc = "DAP: step over" },
-            { "<leader>di", function() require("dap").step_into() end,         desc = "DAP: step into" },
-            { "<leader>do", function() require("dap").step_out() end,          desc = "DAP: step out" },
-            { "<leader>du", function() require("dapui").toggle() end,          desc = "DAP: toggle UI" },
         },
 
         config = function()
@@ -166,10 +141,29 @@ return {
             dap.configurations.objc = cpp_configs
             dap.configurations.objcpp = cpp_configs
 
-            -- launch.json support (VS Code style), if a project ships one
-            require("dap.ext.vscode").load_launchjs(nil, {
-                codelldb = { "c", "cpp", "objc", "objcpp" },
-            })
+            -- =============================================
+            -- Python (debugpy)
+            -- =============================================
+            dap.adapters.python = function(on_adapter)
+                on_adapter({
+                    type = "executable",
+                    command = vim.fn.stdpath("data") .. "/mason/packages/debugpy/venv/bin/python",
+                    args = { "-m", "debugpy.adapter" },
+                })
+            end
+
+            dap.configurations.python = {
+                {
+                    name = "Launch current file",
+                    type = "python",
+                    request = "launch",
+                    program = "${file}",
+                    cwd = "${workspaceFolder}",
+                    console = "integratedTerminal",
+                    -- the project's virtualenv if there is one
+                    pythonPath = function() return require("core.run").python() end,
+                },
+            }
         end,
     },
 }

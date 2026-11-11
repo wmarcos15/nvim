@@ -46,7 +46,8 @@ Diagnostics:
       - portability-*
       - modernize-*
       - readability-*
-      - clang-analyzer-*
+      # clang-analyzer-* is not listed: clangd does not run the static
+      # analyzer. Those checks run on save instead (lua/plugins/lint.lua).
       # - cppcoreguidelines-*   # thorough but very noisy
     Remove:
       - modernize-use-trailing-return-type

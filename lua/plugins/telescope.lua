@@ -1,25 +1,25 @@
 -- lua/plugins/telescope.lua
+-- Launch keys (<leader>f*, gd, grr, ...) live in lua/core/keymaps.lua.
 return {
     {
         "nvim-telescope/telescope.nvim",
         branch = "0.1.x",
+        lazy = true, -- loads on first use (any <leader>f key or :Telescope)
+        cmd = "Telescope",
         dependencies = {
             "nvim-lua/plenary.nvim",
             "nvim-tree/nvim-web-devicons",
-            "nvim-treesitter/nvim-treesitter",
             { "nvim-telescope/telescope-fzf-native.nvim", build = "make" },
         },
         config = function()
             local telescope = require("telescope")
             local actions = require("telescope.actions")
+            local document = require("core.keymaps").document
 
             telescope.setup({
                 defaults = {
-                    preview = {
-                        treesitter = false,
-                    },
-                    prompt_prefix = " ",
-                    selection_caret = " ",
+                    prompt_prefix = "\u{f002}  ",
+                    selection_caret = "\u{f054} ",
                     path_display = { "truncate" },
                     sorting_strategy = "ascending",
                     layout_config = {
@@ -31,16 +31,18 @@ return {
                         height = 0.80,
                     },
 
-                    -- Keep large C/C++ build output out of find_files and
-                    -- live_grep. Lua patterns, matched against the whole path,
-                    -- so the "$"-anchored ones only hit real extensions.
+                    -- Keep build output and dependencies out of find_files and
+                    -- live_grep. Lua patterns, matched against the whole path.
                     file_ignore_patterns = {
                         -- VCS / deps
                         "^%.git/", "/%.git/", "node_modules/",
+                        "__pycache__/", "%.venv/", "^venv/",
 
                         -- Build trees
                         "^build/", "/build/",
                         "^out/", "/out/",
+                        "^target/", "/target/",
+                        "^dist/", "/dist/",
                         "cmake%-build.*/",
                         "CMakeFiles/",
                         "%.dSYM/",
@@ -51,12 +53,13 @@ return {
                         "%.cache/",
                         "%.ccls%-cache/",
 
-                        -- Object files, archives, shared & static libs
+                        -- Object files, archives, libraries, bytecode
                         "%.o$", "%.obj$", "%.lo$",
                         "%.a$", "%.lib$",
                         "%.so$", "%.so%.%d", "%.dylib$", "%.dll$",
-                        "%.d$",   -- make dependency files
+                        "%.d$",
                         "%.gch$", "%.pch$",
+                        "%.class$", "%.jar$", "%.pyc$",
 
                         -- Binaries / misc build artifacts
                         "%.out$", "%.bin$", "%.elf$", "%.exe$",
@@ -77,14 +80,15 @@ return {
                 },
 
                 pickers = {
-                    find_files = {
-                        hidden = true,
-                    },
+                    find_files = { hidden = true },
                     live_grep = {
-                        additional_args = function()
-                            return { "--hidden" }
-                        end,
+                        additional_args = function() return { "--hidden" } end,
                     },
+                    -- One match: jump straight there. Several: pick from a list.
+                    lsp_definitions = { show_line = false },
+                    lsp_references = { show_line = false, include_declaration = false },
+                    lsp_implementations = { show_line = false },
+                    lsp_type_definitions = { show_line = false },
                 },
 
                 extensions = {
@@ -97,7 +101,24 @@ return {
                 },
             })
 
-            telescope.load_extension("fzf")
+            pcall(telescope.load_extension, "fzf")
+
+            -- Docs entries for the keys that work inside a picker
+            local inside = { group = "Find", where = "inside a Telescope picker" }
+            local function doc(lhs, desc)
+                document("i", lhs, vim.tbl_extend("force", inside, { desc = desc }))
+            end
+            doc("<C-j>", "Next result")
+            doc("<C-k>", "Previous result")
+            doc("<CR>", "Open selected result")
+            doc("<C-x>", "Open result in a horizontal split")
+            doc("<C-v>", "Open result in a vertical split")
+            doc("<C-t>", "Open result in a new tab")
+            doc("<Tab>", "Mark result (multi-select)")
+            doc("<C-q>", "Send marked results to the quickfix list")
+            doc("<C-u>", "Scroll preview up")
+            doc("<C-d>", "Scroll preview down")
+            doc("<Esc>", "Close picker")
         end,
     },
 }

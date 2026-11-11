@@ -1,0 +1,241 @@
+-- lua/core/themes.lua
+--
+-- THEME SLOTS. Slot N is on <leader>tN. <leader>tn cycles, <leader>tt browses
+-- every installed colorscheme in Telescope. The last choice is remembered.
+--
+-- ── Adding or changing a theme ─────────────────────────────────────────
+-- 1. If it comes from a new plugin, add the plugin to lua/plugins/ui.lua
+--    with `lazy = true` (it then only loads when its slot is used).
+-- 2. Add or edit an entry in M.slots below. Fields:
+--
+--      name         shown when you switch, and in the keymap docs
+--      colorscheme  what you would type after :colorscheme
+--      setup        optional function, runs before the colorscheme is
+--                   applied; put the plugin's setup({...}) call here
+--      highlights   optional function returning { Group = { fg=, bg=, ... } }
+--                   overrides, applied after the colorscheme
+--      statusline   "classic" | "slant" | "minimal"   (see M.statuslines)
+--      docs         optional colours for the keymap docs page, e.g.
+--                   { bg = "#101014" }. Anything left out is read from the
+--                   colorscheme itself. Transparent themes need `bg`.
+--
+-- A 4th, 5th, ... entry gets <leader>t4, <leader>t5, ... automatically.
+local M = {}
+
+local function kanagawa(variant)
+    return function()
+        require("kanagawa").setup({
+            compile = false,
+            undercurl = true,
+            transparent = true, -- terminal background shows through
+            terminalColors = true,
+            dimInactive = false,
+            theme = variant,
+            background = { dark = variant, light = "lotus" },
+            colors = { theme = { all = { ui = { bg_gutter = "none" } } } },
+            overrides = function(colors)
+                local theme = colors.theme
+                return {
+                    -- Floating windows transparent too
+                    NormalFloat = { bg = "none" },
+                    FloatBorder = { bg = "none" },
+                    FloatTitle  = { bg = "none" },
+
+                    TelescopeNormal        = { bg = "none" },
+                    TelescopeBorder        = { bg = "none" },
+                    TelescopeResultsNormal = { bg = "none" },
+                    TelescopePreviewNormal = { bg = "none" },
+                    TelescopePromptNormal  = { bg = "none" },
+
+                    -- Completion menu
+                    Pmenu    = { fg = theme.ui.shade0, bg = "none" },
+                    PmenuSel = { bg = theme.ui.bg_p2 },
+
+                    Visual = { bg = theme.ui.bg_p2 },
+                }
+            end,
+        })
+    end
+end
+
+M.slots = {
+    -- 1 ── the original look
+    {
+        name = "Kanagawa Wave",
+        colorscheme = "kanagawa-wave",
+        setup = kanagawa("wave"),
+        statusline = "classic",
+        docs = { bg = "#1F1F28" },
+    },
+
+    -- 2 ── futuristic: neon on near-black, angled statusline, borderless pickers
+    {
+        name = "Cyberdream",
+        colorscheme = "cyberdream",
+        setup = function()
+            require("cyberdream").setup({
+                transparent = true,
+                italic_comments = true,
+                borderless_pickers = true,
+                terminal_colors = true,
+            })
+        end,
+        highlights = function()
+            return {
+                CursorLineNr = { fg = "#5ef1ff", bold = true },
+                LineNr       = { fg = "#3c4048" },
+                WinSeparator = { fg = "#3c4048" },
+                FloatBorder  = { fg = "#5ef1ff", bg = "none" },
+                NormalFloat  = { bg = "none" },
+                PmenuSel     = { fg = "#16181a", bg = "#5ef1ff", bold = true },
+                LspInlayHint = { fg = "#7b8496", italic = true },
+            }
+        end,
+        statusline = "slant",
+        docs = { bg = "#16181a", accent = "#5ef1ff", accent2 = "#ff5ea0" },
+    },
+
+    -- 3 ── reserved for you; Kanagawa's darker, warmer variant until you replace it
+    {
+        name = "Kanagawa Dragon",
+        colorscheme = "kanagawa-dragon",
+        setup = kanagawa("dragon"),
+        statusline = "minimal",
+        docs = { bg = "#181616" },
+    },
+}
+
+-- Statusline shapes a slot can pick from (needs a Nerd Font for "slant").
+M.statuslines = {
+    classic = { component = "|", section = { left = "", right = "" } },
+    slant   = { component = { left = "\u{e0bb}", right = "\u{e0bb}" }, section = { left = "\u{e0bc}", right = "\u{e0ba}" } },
+    minimal = { component = "", section = { left = "", right = "" } },
+}
+
+-- ── Implementation ─────────────────────────────────────────────────────
+local state_file = vim.fn.stdpath("state") .. "/theme"
+local applying = false
+M.current = nil
+
+local function save(line)
+    pcall(vim.fn.writefile, { line }, state_file)
+end
+
+--- (Re)build the statusline in the current slot's shape.
+function M.statusline()
+    local ok, lualine = pcall(require, "lualine")
+    if not ok then return end
+    local slot = M.slots[M.current] or {}
+    local shape = M.statuslines[slot.statusline or "classic"] or M.statuslines.classic
+    lualine.setup({
+        options = {
+            theme = "auto", -- follows the active colorscheme
+            globalstatus = true,
+            component_separators = shape.component,
+            section_separators = shape.section,
+        },
+        sections = {
+            lualine_a = { "mode" },
+            lualine_b = { "branch", "diff", "diagnostics" },
+            lualine_c = { { "filename", path = 1 } },
+            lualine_x = { "encoding", "filetype" },
+            lualine_y = { "progress" },
+            lualine_z = { "location" },
+        },
+    })
+end
+
+local function activate(slot)
+    applying = true
+    local ok, err = pcall(function()
+        if slot.setup then slot.setup() end
+        vim.cmd.colorscheme(slot.colorscheme)
+        if slot.highlights then
+            for group, hl in pairs(slot.highlights()) do
+                vim.api.nvim_set_hl(0, group, hl)
+            end
+        end
+    end)
+    applying = false
+    return ok, err
+end
+
+--- Switch to slot `i`.
+function M.apply(i, opts)
+    opts = opts or {}
+    local slot = M.slots[i]
+    if not slot then
+        vim.notify(("Theme slot %d is empty. Add it in lua/core/themes.lua"):format(i), vim.log.levels.WARN)
+        return false
+    end
+    local ok, err = activate(slot)
+    if not ok then
+        vim.notify(("Theme %d (%s) failed: %s"):format(i, slot.name, err), vim.log.levels.ERROR)
+        return false
+    end
+    M.current = i
+    M.statusline()
+    if not opts.temporary then save("slot=" .. i) end
+    if not opts.silent then vim.notify(("Theme %d: %s"):format(i, slot.name)) end
+    return true
+end
+
+--- Cycle to the next slot.
+function M.next()
+    M.apply(((M.current or 0) % #M.slots) + 1)
+end
+
+--- Apply whatever was active last time (called from init.lua).
+function M.load()
+    local ok, lines = pcall(vim.fn.readfile, state_file)
+    local saved = ok and lines[1] or ""
+    local slot = tonumber(saved:match("^slot=(%d+)$"))
+    local name = saved:match("^colorscheme=(.+)$")
+    if slot and M.apply(slot, { silent = true }) then return end
+    if name and pcall(vim.cmd.colorscheme, name) then return end
+    if not M.apply(1, { silent = true }) then pcall(vim.cmd.colorscheme, "habamax") end
+end
+
+-- A colorscheme picked outside the slots (<leader>tt, :colorscheme) is remembered too.
+vim.api.nvim_create_autocmd("ColorScheme", {
+    group = vim.api.nvim_create_augroup("user_theme_persist", { clear = true }),
+    callback = function(ev)
+        if applying then return end
+        M.current = nil
+        save("colorscheme=" .. ev.match)
+    end,
+})
+
+--- Colours of every slot, for the keymap docs page.
+function M.palettes()
+    local function hex(group, attr)
+        local hl = vim.api.nvim_get_hl(0, { name = group, link = false })
+        return hl[attr] and ("#%06x"):format(hl[attr]) or nil
+    end
+    local previous, previous_name = M.current, vim.g.colors_name
+    local out = {}
+    for i, slot in ipairs(M.slots) do
+        if activate(slot) then
+            out[i] = vim.tbl_extend("force", {
+                name = slot.name,
+                bg = hex("Normal", "bg") or "#14141a",
+                fg = hex("Normal", "fg") or "#d8d8e0",
+                muted = hex("Comment", "fg") or "#7a7a8a",
+                accent = hex("Function", "fg") or "#7aa2f7",
+                accent2 = hex("Keyword", "fg") or "#bb9af7",
+                string = hex("String", "fg") or "#9ece6a",
+                warn = hex("DiagnosticWarn", "fg") or "#e0af68",
+            }, slot.docs or {})
+        end
+    end
+    if previous then
+        M.apply(previous, { silent = true, temporary = true })
+    elseif previous_name then
+        applying = true
+        pcall(vim.cmd.colorscheme, previous_name)
+        applying = false
+    end
+    return out
+end
+
+return M

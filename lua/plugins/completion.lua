@@ -2,7 +2,9 @@
 return {
     {
         "hrsh7th/nvim-cmp",
-        event = "InsertEnter",
+        -- CmdlineEnter too: otherwise ":" and "/" completion only starts
+        -- working after the first time you enter insert mode.
+        event = { "InsertEnter", "CmdlineEnter" },
         dependencies = {
             -- Sources
             "hrsh7th/cmp-nvim-lsp",       -- LSP completions
@@ -13,7 +15,7 @@ return {
             -- Snippets
             "L3MON4D3/LuaSnip",            -- snippet engine
             "saadparwaiz1/cmp_luasnip",    -- snippet completions
-            "rafamadriz/friendly-snippets", -- C++ snippet collection
+            "rafamadriz/friendly-snippets", -- snippets for most languages
 
             -- UI
             "onsails/lspkind.nvim",        -- VSCode-like icons in completion menu
@@ -23,7 +25,7 @@ return {
             local luasnip = require("luasnip")
             local lspkind = require("lspkind")
 
-            -- Load friendly-snippets (includes C++ snippets)
+            -- Load friendly-snippets
             require("luasnip.loaders.from_vscode").lazy_load()
 
             cmp.setup({
@@ -47,7 +49,7 @@ return {
                     ["<C-e>"]     = cmp.mapping.abort(),          -- close completion
                     ["<CR>"]      = cmp.mapping.confirm({ select = false }), -- confirm only if explicitly selected
 
-                    -- C++ FEATURE: Super-tab snippet jumping
+                    -- Super-tab: next item, or jump to the next snippet placeholder
                     ["<Tab>"] = cmp.mapping(function(fallback)
                         if cmp.visible() then
                             cmp.select_next_item()
@@ -84,7 +86,6 @@ return {
                         maxwidth = 50,
                         ellipsis_char = "...",
                         show_labelDetails = true,
-                        -- C++ FEATURE: extra detail for template types
                         before = function(entry, vim_item)
                             if entry.source.name == "nvim_lsp" then
                                 vim_item.menu = "[LSP]"
@@ -126,6 +127,21 @@ return {
                     { { name = "cmdline" } }
                 ),
             })
+
+            -- Docs entries for the completion menu keys
+            local document = require("core.keymaps").document
+            local function doc(lhs, desc, modes)
+                document(modes or "i", lhs, { desc = desc, group = "Completion", where = "while the completion menu is open" })
+            end
+            doc("<C-j>", "Next completion item")
+            doc("<C-k>", "Previous completion item")
+            doc("<Tab>", "Next item, or jump to next snippet placeholder", { "i", "s" })
+            doc("<S-Tab>", "Previous item, or jump to previous snippet placeholder", { "i", "s" })
+            doc("<CR>", "Accept the selected item")
+            doc("<C-Space>", "Open the completion menu")
+            doc("<C-e>", "Close the completion menu")
+            doc("<C-f>", "Scroll the documentation popup down")
+            doc("<C-b>", "Scroll the documentation popup up")
 
             -- Hook cmp into autopairs (so <CR> works correctly with pairs)
             local cmp_autopairs = require("nvim-autopairs.completion.cmp")
