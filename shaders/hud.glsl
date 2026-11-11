@@ -7,7 +7,8 @@
 //   - an instrument dial at the right-hand side (where code rarely reaches):
 //     tick ring, counter-rotating arc segments, a radar sweep, one amber arc
 //   - thin brackets in the four corners
-//   - a small flash on each character you type (see typed() below)
+//   - a small flash on each character you type (see typed() below), and the
+//     dial pulses with every keystroke, so it follows your typing rhythm
 //
 // It is meant to sit behind the code, not compete with it:
 //   - it only paints where the terminal shows its background colour, so text,
@@ -22,6 +23,7 @@ const float INTENSITY = 1.0;   // overall brightness; 0.6 = subtler, 1.5 = loude
 const float SPEED     = 1.0;   // how fast everything turns
 const float CLEAR     = 0.90;  // how much it fades around text: 0 = not at all, 1 = fully
 const float TYPING    = 1.0;   // the flash on typed characters; 0 = off
+const float PULSE     = 1.0;   // how much the dial reacts to typing; 0 = not at all
 const float DIAL_SIZE = 0.30;  // dial radius, as a fraction of the window height
 const float DIAL_X    = 0.40;  // dial centre: distance from the right edge (same unit)
 const vec3  MAIN_COL  = vec3(0.37, 0.95, 1.00);  // cyan
@@ -42,7 +44,21 @@ float segments(float ang, float n, float duty, float rot) {
     return smoothstep(0.0, e, f) * (1.0 - smoothstep(duty, duty + e, f));
 }
 
-vec3 dial(vec2 q, float t, float px) {
+// Seconds since the last typed character, or -1 if the last cursor change was
+// not typing. "Typed" means the cursor moved a little to the right on the same
+// row, so stepping right with `l` counts too, while jumps and deletions do not.
+// (A shader keeps no memory: it only knows the latest cursor change.)
+float sinceTyped() {
+    float h = iCurrentCursor.w;                    // cell height
+    vec2 move = iCurrentCursor.xy - iPreviousCursor.xy;
+    if (h <= 0.0 || move.x <= 0.0 || move.x > 1.6 * h || abs(move.y) > 0.25 * h) return -1.0;
+    float dt = iTime - iTimeCursorChange;
+    return dt < 0.0 ? -1.0 : dt;
+}
+
+// `beat` is 1 right on a keystroke and decays to 0 in about half a second;
+// `age` is the time since that keystroke (or -1).
+vec3 dial(vec2 q, float t, float px, float beat, float age) {
     float R = DIAL_SIZE;
     float r = length(q);
     if (r > R * 1.15) return vec3(0.0);
@@ -75,6 +91,15 @@ vec3 dial(vec2 q, float t, float px) {
     // Soft glow so the dial does not look pasted on.
     col += DEEP_COL * exp(-r * r / (R * R * 0.35)) * 0.035;
 
+    // Typing: every keystroke lifts the whole dial a little, lights the core,
+    // and sends one faint ripple out from the centre, like a level meter.
+    col *= 1.0 + 0.55 * beat;
+    col += MAIN_COL * exp(-r * r / (R * R * 0.06)) * 0.10 * beat;
+    if (age >= 0.0 && age < 0.7) {
+        float k = age / 0.7;
+        col += MAIN_COL * ring(r, R * (0.13 + 0.80 * k), 0.0020, px) * 0.30 * (1.0 - k) * (1.0 - k) * PULSE;
+    }
+
     return col;
 }
 
@@ -94,7 +119,9 @@ vec3 scene(vec2 fragCoord, float t) {
     col += DEEP_COL * pip * (0.10 + 0.14 * wave * wave);
 
     // The dial, at the right-hand side and vertically centred.
-    col += dial(p - vec2(ext.x - DIAL_X, 0.0), t * SPEED, px);
+    float age = sinceTyped();
+    float beat = age < 0.0 ? 0.0 : exp(-age / 0.22) * PULSE;
+    col += dial(p - vec2(ext.x - DIAL_X, 0.0), t * SPEED, px, beat, age);
 
     // Corner brackets.
     vec2 c = ext - abs(p) - 0.028;               // distance in from the corner, per axis
@@ -130,16 +157,15 @@ float textNearby(vec2 fragCoord) {
 
 // A brief flash on the character just typed: a soft glow behind it and two
 // hairlines, above and below, that slide apart and fade in a third of a second.
-// "Typed" means the cursor moved a little to the right on the same row, so
-// stepping right with `l` flashes too, while jumps and deletions do not.
 vec3 typed(vec2 fragCoord) {
-    float h = iCurrentCursor.w;                    // cell height
+    float age = sinceTyped();
+    if (age < 0.0) return vec3(0.0);
+    float h = iCurrentCursor.w;
     float cw = 0.5 * h;                            // about one cell wide
     vec2 move = iCurrentCursor.xy - iPreviousCursor.xy;
-    if (h <= 0.0 || move.x <= 0.0 || move.x > 3.2 * cw || abs(move.y) > 0.25 * h) return vec3(0.0);
 
-    float k = (iTime - iTimeCursorChange) / 0.33;
-    if (k < 0.0 || k > 1.0) return vec3(0.0);
+    float k = age / 0.33;
+    if (k > 1.0) return vec3(0.0);
     float fade = (1.0 - k) * (1.0 - k);
 
     // Centre of the cell the character went into.
