@@ -51,6 +51,15 @@ return {
                         return "-p=" .. (in_root and root or (root .. "/build"))
                     end,
                 }
+
+                -- Homebrew clang-tidy can't find the macOS SDK on its own (CMake 4 no
+                -- longer writes -isysroot into compile_commands.json), so pass it.
+                if vim.fn.has("mac") == 1 then
+                    local sdk = vim.fn.trim(vim.fn.system({ "xcrun", "--show-sdk-path" }))
+                    if vim.v.shell_error == 0 and sdk ~= "" then
+                        table.insert(lint.linters.clangtidy.args, "--extra-arg=-isysroot" .. sdk)
+                    end
+                end
             end
 
             -- cppcheck: nvim-lint's parser, our own flags (no "information"

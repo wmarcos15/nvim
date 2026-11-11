@@ -1,0 +1,60 @@
+#!/bin/sh
+# hud - switch the animated Ghostty background on or off from a shell.
+#
+#   hud            toggle: off if it is showing, on if it is not
+#   hud on         show it, and keep it after Neovim quits or changes theme
+#   hud off        hide it
+#   hud status     say what is going on
+#   hud on NAME    use another shader from ~/.config/nvim/shaders (e.g. cyber-grid)
+#
+# It uses the same switch as the Neovim theme slots (lua/core/terminal.lua):
+# a small file that Ghostty's config includes, plus a reload signal. "on" also
+# leaves a pin file, which tells Neovim not to switch the background off.
+set -eu
+
+state="${XDG_STATE_HOME:-$HOME/.local/state}/nvim"
+include="$state/ghostty-theme.conf"
+pin="$state/ghostty-theme.pin"
+shaders="${XDG_CONFIG_HOME:-$HOME/.config}/nvim/shaders"
+
+reload() {
+    # The signal has to come first; -a because Ghostty is this shell's ancestor.
+    pkill -USR2 -a -x ghostty 2>/dev/null || echo "hud: Ghostty is not running" >&2
+}
+
+showing() { [ -s "$include" ] && grep -q '^custom-shader = ' "$include"; }
+
+on() {
+    shader="$shaders/${1:-hud}"
+    case "$shader" in *.glsl) ;; *) shader="$shader.glsl" ;; esac
+    [ -f "$shader" ] || { echo "hud: no such shader: $shader" >&2; exit 1; }
+    mkdir -p "$state"
+    {
+        echo "# Written by bin/hud. Do not edit."
+        echo "background = #16181a"
+        echo "custom-shader = $shader"
+        echo "custom-shader-animation = true"
+    } > "$pin"
+    cp "$pin" "$include"
+    reload
+}
+
+off() {
+    rm -f "$pin"
+    : > "$include"
+    reload
+}
+
+case "${1:-toggle}" in
+    on) on "${2:-}" ;;
+    off) off ;;
+    toggle) if showing; then off; else on; fi ;;
+    status)
+        if showing; then
+            echo "on: $(sed -n 's/^custom-shader = //p' "$include")"
+            [ -f "$pin" ] && echo "pinned: stays on when Neovim quits or changes theme" || echo "set by Neovim's theme: goes off with it"
+        else
+            echo "off"
+        fi ;;
+    *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

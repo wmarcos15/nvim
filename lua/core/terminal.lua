@@ -13,11 +13,16 @@
 --
 --     config-file = ?<the path printed by :ThemeTerminalInfo>
 --
+-- The same switch is available from a shell as bin/hud (on / off / toggle).
+--
 -- Without that line, or in any other terminal (iTerm, ...), nothing here runs
 -- and the slot falls back to a solid background.
 local M = {}
 
 M.include = vim.fn.stdpath("state") .. "/ghostty-theme.conf"
+-- `bin/hud on` (the shell command) leaves this file: the background the user
+-- pinned from a terminal. While it exists, Neovim never switches it off.
+M.pin = vim.fn.stdpath("state") .. "/ghostty-theme.pin"
 local shader_dir = vim.fn.stdpath("config") .. "/shaders/"
 local owned = false -- did this Neovim turn the shader on?
 
@@ -101,11 +106,12 @@ function M.animate(shader, bg)
     return true
 end
 
---- Turn the shader off.
+--- Turn the shader off, or back to what `bin/hud on` pinned, if anything.
 function M.reset()
     if not M.can_animate() then return end
     owned = false
-    write({})
+    local ok, pinned = pcall(vim.fn.readfile, M.pin)
+    write(ok and pinned or {})
 end
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
@@ -119,6 +125,7 @@ vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
         "Ghostty include:     config-file = ?" .. M.include,
         "Included by Ghostty: " .. tostring(M.linked()),
         "Animated background: " .. (M.can_animate() and "available" or "not available here (solid background is used)"),
+        "Pinned from a shell: " .. (vim.uv.fs_stat(M.pin) and "yes (bin/hud off to release)" or "no"),
         "Ghostty process:     " .. tostring(find_ghostty() or "not found among this Neovim's parents"),
     }, "\n"))
 end, { desc = "Show whether the animated theme background can run in this terminal" })

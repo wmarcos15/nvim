@@ -49,6 +49,7 @@ lua/plugins/             one file per area; plugin setup only, no keymaps
   completion.lua  dap.lua  editing.lua  ui.lua
 docs/                    the keymap web page (index.html + generated keymaps.js)
 shaders/                 animated backgrounds (Ghostty) + browser preview
+bin/hud                  switch the animated background from a shell
 scripts/check.lua        self-test (see below)
 templates/clangd         starter .clangd for a C/C++ project
 ```
@@ -98,6 +99,15 @@ One-time setup: Ghostty must include a small file that Neovim writes. Run
 `:ThemeTerminalInfo` in Neovim and add the `config-file = ?...` line it prints
 to Ghostty's config. In iTerm or any other terminal, slot 2 simply uses a solid
 background.
+
+The background belongs to the Ghostty window, not to Neovim, so it also shows
+in plain shell tabs. `bin/hud` switches it from a shell: `hud` toggles,
+`hud on` keeps it on even after Neovim quits or changes theme, `hud off` hides
+it, `hud status` explains. To have it as a command:
+
+```
+alias hud="$HOME/.config/nvim/bin/hud"
+```
 
 To tune the animation, edit the constants at the top of the shader. To preview
 it in a browser:
