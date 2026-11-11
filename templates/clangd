@@ -1,0 +1,122 @@
+# clangd project configuration -- copy this file to the root of a C/C++
+# project as ".clangd" (note the leading dot):
+#
+#     cp ~/.config/nvim/templates/clangd /path/to/project/.clangd
+#
+# Format reference: https://clangd.llvm.org/config
+# Nvim passes --enable-config, so clangd reads this file (and any .clangd in
+# parent directories, plus the user-wide one at
+# ~/Library/Preferences/clangd/config.yaml on macOS).
+# clangd re-reads it on save -- no :LspRestart needed for most changes.
+
+CompileFlags:
+  # Where compile_commands.json lives, relative to this file.
+  # Set this when you build out-of-tree (the usual CMake case) instead of
+  # symlinking the database to the project root.
+  CompilationDatabase: build
+
+  # Extra flags appended to every translation unit. Use this for include
+  # paths the build system doesn't know about, and for language defaults
+  # applied to headers opened on their own.
+  Add:
+    - -std=c++20            # or -std=c17 for a C project
+    - -Wall
+    - -Wextra
+    # - -I./include
+    # - -I./third_party/include
+    # - -isystem/opt/homebrew/include
+    # - -DMYPROJECT_DEBUG=1
+
+  # Flags to strip from compile_commands.json entries. Compiler-specific
+  # flags that clang doesn't understand belong here (common when the project
+  # is built with GCC, nvcc, or a cross-compiler).
+  Remove:
+    - -mno-direct-extern-access
+    - -fno-tree-loop-distribute-patterns
+    - "-mabi=*"
+    # - "-W*"                # nuke all warning flags from the database
+
+Diagnostics:
+  # clang-tidy. Globs, comma-separated; "-" prefix disables.
+  # Start broad, then subtract the noisy ones.
+  ClangTidy:
+    Add:
+      - bugprone-*
+      - performance-*
+      - portability-*
+      - modernize-*
+      - readability-*
+      - clang-analyzer-*
+      # - cppcoreguidelines-*   # thorough but very noisy
+    Remove:
+      - modernize-use-trailing-return-type
+      - readability-identifier-length
+      - readability-magic-numbers
+      - bugprone-easily-swappable-parameters
+      - cppcoreguidelines-pro-bounds-pointer-arithmetic
+    CheckOptions:
+      readability-function-cognitive-complexity.Threshold: 40
+
+  # Report headers that are included but unused, and symbols used without a
+  # direct include. Pairs with clangd's --header-insertion=iwyu.
+  # Strict (None | Strict) -- set to None on projects with umbrella headers.
+  UnusedIncludes: Strict
+  MissingIncludes: None
+
+  # Suppress specific diagnostic codes project-wide.
+  # Suppress: [ -Wunused-parameter ]
+
+InlayHints:
+  Enabled: Yes
+  ParameterNames: Yes
+  DeducedTypes: Yes
+  Designators: Yes
+  BlockEnd: No
+
+Hover:
+  ShowAKA: Yes
+
+Completion:
+  # Offer symbols from namespaces that aren't currently in scope
+  # (clangd adds the qualifier for you). Matches --all-scopes-completion.
+  AllScopes: Yes
+
+Index:
+  # Build the background index for this project (Build | Skip).
+  # Skip is useful for a huge read-only dependency tree.
+  Background: Build
+  # Also index the standard library headers, so std:: symbols show up in
+  # workspace symbol search and completion before they're included anywhere.
+  StandardLibrary: Yes
+
+---
+# Per-path overrides. Everything after "---" is a separate fragment that
+# applies only to files matching If.PathMatch (regex, relative to this file).
+
+# Generated or vendored code: keep it compiling, keep it quiet.
+If:
+  PathMatch: ["third_party/.*", "vendor/.*", ".*\\.generated\\..*", "build/.*"]
+Diagnostics:
+  ClangTidy:
+    Remove: ["*"]
+  UnusedIncludes: None
+  Suppress: ["*"]
+
+---
+# Plain C sources: don't apply the C++ standard flag.
+If:
+  PathMatch: ".*\\.c"
+CompileFlags:
+  Remove: ["-std=c++*"]
+  Add: ["-std=c17"]
+
+---
+# Tests: allow patterns clang-tidy would otherwise flag.
+If:
+  PathMatch: ["tests?/.*", ".*_test\\.(c|cc|cpp|cxx)"]
+Diagnostics:
+  ClangTidy:
+    Remove:
+      - cppcoreguidelines-avoid-non-const-global-variables
+      - readability-function-cognitive-complexity
+      - cert-err58-cpp
