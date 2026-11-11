@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nvim keymaps</title>
+<style>
+  :root {
+    --bg: #16181a; --fg: #e8e8f0; --muted: #7b8496;
+    --accent: #5ef1ff; --accent2: #ff5ea0; --string: #5eff6c; --warn: #f1ff5e;
+    --surface: color-mix(in srgb, var(--fg) 4%, var(--bg));
+    --surface2: color-mix(in srgb, var(--fg) 8%, var(--bg));
+    --border: color-mix(in srgb, var(--fg) 13%, var(--bg));
+    --glow: color-mix(in srgb, var(--accent) 22%, transparent);
+    --mono: "Hack Nerd Font", "Hack", "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0; min-height: 100vh; color: var(--fg); background: var(--bg);
+    font: 15px/1.5 var(--mono);
+    background-image:
+      radial-gradient(900px 420px at 85% -10%, var(--glow), transparent 70%),
+      radial-gradient(700px 380px at -10% 0%, color-mix(in srgb, var(--accent2) 12%, transparent), transparent 70%),
+      linear-gradient(color-mix(in srgb, var(--fg) 3%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--fg) 3%, transparent) 1px, transparent 1px);
+    background-size: auto, auto, 44px 44px, 44px 44px;
+    background-attachment: fixed;
+    transition: background-color .25s, color .25s;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px 80px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding: 28px 0 18px; }
+  h1 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+  h1 .slash { color: var(--accent); }
+  h1 .cursor { display: inline-block; width: .6em; height: 1.05em; margin-left: 6px; background: var(--accent); vertical-align: -2px; animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { h1 .cursor { animation: none; } * { transition: none !important; } }
+
+  .themes { display: flex; gap: 6px; flex-wrap: wrap; }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  .themes button, .chip {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 3px;
+    padding: 5px 10px; font-size: 12px; color: var(--muted); transition: all .15s;
+  }
+  .themes button b { color: var(--accent); font-weight: 600; margin-right: 6px; }
+  .themes button:hover, .chip:hover { color: var(--fg); border-color: var(--accent); }
+  .themes button[aria-pressed="true"], .chip[aria-pressed="true"] {
+    color: var(--bg); background: var(--accent); border-color: var(--accent); font-weight: 600;
+  }
+  .themes button[aria-pressed="true"] b { color: var(--bg); }
+
+  .sticky { position: sticky; top: 0; z-index: 5; padding: 10px 0 12px; background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(10px); }
+  .search {
+    display: flex; align-items: center; gap: 12px; padding: 0 16px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
+    clip-path: polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 14px 100%, 0 calc(100% - 14px));
+    transition: border-color .15s, box-shadow .15s;
+  }
+  .search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 0 34px var(--glow); }
+  .search span { color: var(--accent); font-weight: 700; }
+  .search input { flex: 1; min-width: 0; padding: 16px 0; border: 0; outline: 0; background: none; color: var(--fg); font: 17px var(--mono); }
+  .search input::placeholder { color: var(--muted); }
+  .search small { color: var(--muted); white-space: nowrap; font-size: 12px; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; align-items: center; }
+  .filters .sep { width: 1px; height: 18px; background: var(--border); margin: 0 6px; }
+  .filters label { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+
+  h2 { display: flex; align-items: center; gap: 12px; margin: 34px 0 10px; font-size: 12px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--accent); }
+  h2::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
+  h2 em { font-style: normal; color: var(--muted); letter-spacing: 0; }
+
+  .row {
+    display: grid; grid-template-columns: minmax(150px, 230px) 1fr auto; gap: 16px; align-items: center;
+    width: 100%; text-align: left; padding: 10px 14px; margin: 0 0 4px;
+    background: var(--surface); border: 1px solid transparent; border-left: 2px solid var(--border); border-radius: 2px;
+    transition: border-color .12s, background .12s, transform .12s;
+  }
+  .row:hover, .row:focus-visible { outline: 0; background: var(--surface2); border-color: var(--border); border-left-color: var(--accent); transform: translateX(2px); }
+  .row.copied { border-left-color: var(--string); }
+  .keys { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  kbd {
+    font: 600 12.5px var(--mono); padding: 3px 7px; min-width: 24px; text-align: center; white-space: nowrap;
+    color: var(--fg); background: var(--surface2);
+    border: 1px solid var(--border); border-bottom: 2px solid color-mix(in srgb, var(--accent) 55%, var(--border)); border-radius: 4px;
+  }
+  kbd.cmd { color: var(--string); border-bottom-color: var(--string); }
+  .plus { color: var(--muted); font-size: 11px; }
+  .desc { min-width: 0; }
+  .desc small { display: block; color: var(--muted); font-size: 12px; }
+  .desc mark { background: none; color: var(--accent); font-weight: 600; }
+  .meta { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .badge { font-size: 11px; padding: 1px 7px; border: 1px solid var(--border); border-radius: 99px; color: var(--muted); white-space: nowrap; }
+  .badge.mode { color: var(--accent2); border-color: color-mix(in srgb, var(--accent2) 40%, var(--border)); }
+  .badge.lang { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+  .badge.src { color: var(--string); border-color: color-mix(in srgb, var(--string) 35%, var(--border)); }
+
+  .empty { margin: 60px 0; text-align: center; color: var(--muted); }
+  .empty b { color: var(--fg); }
+  footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--border); color: var(--muted); font-size: 12px; }
+  footer code { color: var(--fg); }
+
+  @media (max-width: 640px) {
+    .row { grid-template-columns: 1fr; gap: 6px; }
+    .meta { justify-content: flex-start; }
+    .search small { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>nvim <span class="slash">//</span> keymaps<span class="cursor"></span></h1>
+    <div class="themes" id="themes" aria-label="Theme"></div>
+  </header>
+
+  <div class="sticky">
+    <div class="search">
+      <span>&gt;</span>
+      <input id="q" type="search" autocomplete="off" spellcheck="false" autofocus
+             placeholder="go to definition, rename, stage hunk, <leader>f, ctrl e ...">
+      <small id="count"></small>
+    </div>
+    <div class="filters" id="filters"></div>
+  </div>
+
+  <main id="results"></main>
+
+  <footer>
+    Generated from the live config. Run <code>:KeymapDocs</code> (or <code>Space ?</code>) in Neovim to refresh.
+    Press <code>/</code> to search, <code>Esc</code> to clear, click a row to copy its keys.
+    <code>Space</code> is the leader key.
+  </footer>
+</div>
+
+<script src="keymaps.js"></script>
+<script src="reference.js"></script>
+<script>
+(() => {
+  const DOCS = window.NVIM_DOCS || { groups: [], themes: [], keymaps: [] };
+  const all = [
+    ...DOCS.keymaps.map(k => ({ ...k, src: "config", mine: true })),
+    ...(window.NVIM_REFERENCE || []).map(k => ({ ...k, mine: k.src === "config" })),
+  ];
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+  // ── Themes (same slots as lua/core/themes.lua) ───────────────────────
+  const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } },
+                  set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+  function applyTheme(i) {
+    const t = DOCS.themes[i]; if (!t) return;
+    for (const k of ["bg", "fg", "muted", "accent", "accent2", "string", "warn"])
+      if (t[k]) document.documentElement.style.setProperty("--" + k, t[k]);
+    store.set("theme", i);
+    [...$("themes").children].forEach((b, j) => b.setAttribute("aria-pressed", j === i));
+  }
+  DOCS.themes.forEach((t, i) => {
+    const b = document.createElement("button");
+    b.innerHTML = `<b>${i + 1}</b>${esc(t.name)}`;
+    b.title = `In Neovim: Space t ${i + 1}`;
+    b.onclick = () => applyTheme(i);
+    $("themes").append(b);
+  });
+  applyTheme(Math.min(+(store.get("theme") ?? 0) || 0, Math.max(DOCS.themes.length - 1, 0)));
+
+  // ── Key rendering ────────────────────────────────────────────────────
+  const NAMES = { leader: "Space", space: "Space", cr: "Enter", esc: "Esc", tab: "Tab", bs: "Backspace", nop: "∅" };
+  function keycaps(keys) {
+    if (keys.startsWith(":")) return `<kbd class="cmd">${esc(keys)}</kbd>`;
+    return (keys.match(/<[^>]+>|./g) || []).map(tok => {
+      if (!tok.startsWith("<")) return `<kbd>${esc(tok)}</kbd>`;
+      const inner = tok.slice(1, -1);
+      const parts = inner.split("-");
+      const key = parts.pop() || "-";
+      const mods = parts.map(m => ({ c: "Ctrl", s: "Shift", a: "Alt", m: "Alt", d: "Cmd" }[m.toLowerCase()] || m));
+      const name = NAMES[key.toLowerCase()] || (key.length === 1 ? key.toUpperCase() : key);
+      return [...mods, name].map(p => `<kbd>${esc(p)}</kbd>`).join('<span class="plus">+</span>');
+    }).join("");
+  }
+  const MODES = { n: "normal", i: "insert", x: "visual", v: "visual", o: "operator", s: "snippet", c: "command", t: "terminal" };
+
+  // ── Search ───────────────────────────────────────────────────────────
+  const STOP = new Set("how do i to the a an in into get my is what of for on can me go it this that with and or you does".split(" "));
+  const SYN = {
+    def: ["definition"], defs: ["definition"], declaration: ["declaration", "definition"],
+    refs: ["reference"], usages: ["reference", "usages"], uses: ["reference", "usages"], callers: ["reference"],
+    save: ["save", "write"], close: ["close", "quit"], exit: ["quit"],
+    search: ["search", "find", "grep"], find: ["find", "search"], grep: ["grep", "search"],
+    error: ["error", "diagnostic"], errors: ["error", "diagnostic"], warning: ["warning", "diagnostic"],
+    lint: ["lint", "diagnostic"], linter: ["lint", "diagnostic"], problems: ["diagnostic"],
+    copy: ["yank", "copy"], yank: ["yank"], cut: ["delete"], docs: ["hover", "docs"], documentation: ["hover", "docs"],
+    theme: ["theme", "colorscheme"], colors: ["theme", "colorscheme"], colour: ["theme"], color: ["theme"],
+    pane: ["window"], panes: ["window"], splits: ["split"], tab: ["tab", "buffer"],
+    fix: ["code action", "fix"], import: ["code action", "import"], refactor: ["rename", "code action", "refactor"],
+    run: ["run", "execute"], compile: ["build", "compile"], debugger: ["debug"], breakpoints: ["breakpoint"],
+    explorer: ["explorer"], tree: ["explorer", "tree"], files: ["file"], symbol: ["symbol"], symbols: ["symbol"],
+    function: ["function"], functions: ["function"], args: ["argument"], arg: ["argument"], parameter: ["argument", "parameter"],
+    indent: ["indent", "format"], prettify: ["format"], autocomplete: ["completion"], complete: ["completion"],
+    commit: ["git"], diff: ["diff", "hunk"], changes: ["hunk", "change"], history: ["undo", "recent", "history"],
+  };
+  function normKeys(q) {
+    return q.toLowerCase().trim()
+      .replace(/\b(?:ctrl|control)\s*[+\- ]\s*(\S)/g, "<c-$1>")
+      .replace(/\b(?:shift)\s*[+\- ]\s*(\w+)/g, "<s-$1>")
+      .replace(/\b(?:space|leader)\b/g, "<leader>")
+      .replace(/\s+/g, "");
+  }
+  for (const e of all) {
+    e._desc = (e.desc || "").toLowerCase();
+    e._tags = [e.tags, e.group, e.lang, e.where, e.src].filter(Boolean).join(" ").toLowerCase();
+    e._keys = e.keys.toLowerCase();
+  }
+  function score(e, q) {
+    const raw = q.trim();
+    if (!raw) return 1;
+    let s = 0;
+    if (e.keys === raw) s += 80;
+    const kq = normKeys(raw);
+    if (kq && e._keys === kq) s += 50;
+    else if (kq.length > 1 && e._keys.startsWith(kq)) s += 30;
+    else if (kq.length > 2 && e._keys.includes(kq)) s += 8;
+
+    const tokens = raw.toLowerCase().split(/[^a-z0-9+#/.]+/).filter(t => t && !STOP.has(t));
+    if (!tokens.length) return s;
+    let hit = 0, text = 0;
+    for (const t of tokens) {
+      const alts = [t, ...(SYN[t] || [])];
+      let best = 0;
+      for (const a of alts) {
+        if (new RegExp("\\b" + a.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).test(e._desc)) best = Math.max(best, 10);
+        else if (a.length > 2 && e._desc.includes(a)) best = Math.max(best, 6);
+        if (a.length > 2 && e._tags.includes(a)) best = Math.max(best, 4);
+      }
+      if (best) { hit++; text += best; }
+    }
+    if (hit === tokens.length) return s + text + 100;      // every word matched
+    return s > 0 ? s : (hit ? text / 4 : 0);              // partial matches rank low
+  }
+  function highlight(desc, q) {
+    const words = q.toLowerCase().split(/[^a-z0-9]+/).filter(t => t.length > 1 && !STOP.has(t))
+      .flatMap(t => [t, ...(SYN[t] || [])]);
+    if (!words.length) return esc(desc);
+    const re = new RegExp("(" + words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "ig");
+    return esc(desc).replace(re, "<mark>$1</mark>");
+  }
+
+  // ── Filters ──────────────────────────────────────────────────────────
+  const state = { q: "", group: "All", mode: "all", src: "all" };
+  const groups = ["All", ...DOCS.groups.filter(g => all.some(e => e.group === g))];
+  function chips(label, key, options) {
+    const frag = document.createDocumentFragment();
+    const l = document.createElement("label"); l.textContent = label; frag.append(l);
+    for (const [value, text] of options) {
+      const b = document.createElement("button");
+      b.className = "chip"; b.textContent = text; b.dataset.key = key; b.dataset.value = value;
+      b.onclick = () => { state[key] = value; render(); };
+      frag.append(b);
+    }
+    return frag;
+  }
+  const sep = () => Object.assign(document.createElement("span"), { className: "sep" });
+  $("filters").append(
+    chips("Group", "group", groups.map(g => [g, g])), sep(),
+    chips("Mode", "mode", [["all", "any"], ["n", "normal"], ["i", "insert"], ["x", "visual"], ["o", "operator"]]), sep(),
+    chips("From", "src", [["all", "everything"], ["mine", "my config"], ["default", "built-in / plugins"]]),
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────
+  function row(e) {
+    const modes = e.modes.map(m => MODES[m] || m).filter((m, i, a) => a.indexOf(m) === i);
+    const where = e.where ? `<small>${esc(e.where)}</small>` : "";
+    return `<button class="row" data-keys="${esc(e.keys)}" title="Click to copy ${esc(e.keys)}">
+      <span class="keys">${keycaps(e.keys)}</span>
+      <span class="desc">${highlight(e.desc || "", state.q)}${where}</span>
+      <span class="meta">
+        ${e.lang ? `<span class="badge lang">${esc(e.lang)}</span>` : ""}
+        ${modes.filter(m => m !== "command").map(m => `<span class="badge mode">${m}</span>`).join("")}
+        ${e.mine ? "" : `<span class="badge src">${esc(e.src)}</span>`}
+      </span></button>`;
+  }
+  function render() {
+    document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", state[b.dataset.key] === b.dataset.value));
+    let list = all.filter(e =>
+      (state.group === "All" || e.group === state.group) &&
+      (state.mode === "all" || e.modes.includes(state.mode) || (state.mode === "x" && e.modes.includes("v"))) &&
+      (state.src === "all" || (state.src === "mine") === e.mine));
+    const q = state.q.trim();
+    let html = "";
+    if (q) {
+      let scored = list.map(e => [score(e, q), e]).filter(([s]) => s > 0).sort((a, b) => b[0] - a[0]);
+      // once something matches every word (or the keys), drop the partial matches
+      if (scored.length && scored[0][0] >= 30) scored = scored.filter(([s]) => s >= 30);
+      list = scored.map(([, e]) => e);
+      if (list.length) html = `<h2>Results <em>${list.length}</em></h2>` + list.map(row).join("");
+    } else {
+      for (const g of groups.slice(1)) {
+        const items = list.filter(e => e.group === g);
+        if (items.length) html += `<h2>${esc(g)} <em>${items.length}</em></h2>` + items.map(row).join("");
+      }
+    }
+    $("results").innerHTML = html || `<div class="empty">Nothing matches <b>${esc(q || "these filters")}</b>.<br>Try fewer words, or clear the filters.</div>`;
+    $("count").textContent = `${list.length} / ${all.length}`;
+  }
+
+  $("q").addEventListener("input", e => { state.q = e.target.value; render(); });
+  document.addEventListener("keydown", e => {
+    if (e.key === "/" && document.activeElement !== $("q")) { e.preventDefault(); $("q").focus(); $("q").select(); }
+    if (e.key === "Escape") { $("q").value = ""; state.q = ""; state.group = "All"; state.mode = "all"; state.src = "all"; render(); $("q").focus(); }
+  });
+  $("results").addEventListener("click", e => {
+    const r = e.target.closest(".row"); if (!r) return;
+    navigator.clipboard?.writeText(r.dataset.keys).then(() => {
+      r.classList.add("copied"); setTimeout(() => r.classList.remove("copied"), 700);
+    }).catch(() => {});
+  });
+  render();
+})();
+</script>
+</body>
+</html>
