@@ -50,14 +50,42 @@ function M.can_animate()
     return M.in_ghostty() and M.linked()
 end
 
-local function write(lines, wait)
+-- The Ghostty process this Neovim runs in: walk up the parent chain
+-- (nvim <- shell <- login <- ghostty) until a process named ghostty turns up.
+local ghostty_pid
+local function find_ghostty()
+    if ghostty_pid then return ghostty_pid end
+    local pid = vim.uv.os_getppid()
+    for _ = 1, 12 do
+        if not pid or pid <= 1 then break end
+        local out = vim.system({ "ps", "-o", "ppid=,comm=", "-p", tostring(pid) }, { text = true }):wait(1000).stdout or ""
+        local ppid, comm = out:match("^%s*(%d+)%s+(.-)%s*$")
+        if not ppid then break end
+        if comm:lower():match("ghostty$") then
+            ghostty_pid = pid
+            return pid
+        end
+        pid = tonumber(ppid)
+    end
+end
+
+-- Ghostty reloads its config on SIGUSR2.
+local function reload_ghostty()
+    local pid = find_ghostty()
+    if pid and vim.uv.kill(pid, "sigusr2") == 0 then return true end
+    -- Fallback: every Ghostty. The signal has to be the first argument;
+    -- -a because pkill skips its own ancestors.
+    return vim.system({ "pkill", "-USR2", "-a", "-x", "ghostty" }):wait(1000).code == 0
+end
+M.reload_ghostty = reload_ghostty
+
+local function write(lines)
     local ok, old = pcall(vim.fn.readfile, M.include)
     if ok and vim.deep_equal(old, lines) then return end
     vim.fn.writefile(lines, M.include)
-    -- -a: pkill skips its own ancestors by default, and Ghostty is one (it
-    -- started the shell that started this Neovim).
-    local job = vim.system({ "pkill", "-a", "-USR2", "-x", "ghostty" })
-    if wait then job:wait(1000) end
+    if not reload_ghostty() then
+        vim.notify("Theme: could not ask Ghostty to reload its config", vim.log.levels.WARN)
+    end
 end
 
 --- Turn on `shader` (a file in shaders/) over background colour `bg`.
@@ -74,15 +102,15 @@ function M.animate(shader, bg)
 end
 
 --- Turn the shader off.
-function M.reset(wait)
+function M.reset()
     if not M.can_animate() then return end
     owned = false
-    write({}, wait)
+    write({})
 end
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
     group = vim.api.nvim_create_augroup("user_terminal_bg", { clear = true }),
-    callback = function() if owned then M.reset(true) end end,
+    callback = function() if owned then M.reset() end end,
 })
 
 vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
@@ -91,6 +119,7 @@ vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
         "Ghostty include:     config-file = ?" .. M.include,
         "Included by Ghostty: " .. tostring(M.linked()),
         "Animated background: " .. (M.can_animate() and "available" or "not available here (solid background is used)"),
+        "Ghostty process:     " .. tostring(find_ghostty() or "not found among this Neovim's parents"),
     }, "\n"))
 end, { desc = "Show whether the animated theme background can run in this terminal" })
 
