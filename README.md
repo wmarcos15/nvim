@@ -37,7 +37,7 @@ lua/core/
   themes.lua             theme slots  <- edit this to add / change themes
   cursor.lua             cursor colour by mode / on errors (for slots that ask)
   start.lua              the start screen
-  terminal.lua           animated background switch for Ghostty
+  orb.lua                shows / hides the Orb background (~/.config/orb)
   run.lua                what "run" and "build" mean per language
   autocmds.lua           small automations (yank flash, restore cursor, ...)
   docs.lua               :KeymapDocs
@@ -48,8 +48,6 @@ lua/plugins/             one file per area; plugin setup only, no keymaps
   telescope.lua  harpoon.lua  gitsigns.lua  treesitter.lua
   completion.lua  dap.lua  editing.lua  ui.lua
 docs/                    the keymap web page (index.html + generated keymaps.js)
-shaders/                 animated backgrounds (Ghostty) + browser preview
-bin/hud                  switch the animated background from a shell
 scripts/check.lua        self-test (see below)
 templates/clangd         starter .clangd for a C/C++ project
 ```
@@ -75,50 +73,24 @@ is remembered.
 | Slot | Theme | Background |
 |---|---|---|
 | 1 | Kanagawa Wave | transparent: your terminal's background or image shows through |
-| 2 | Cyberdream HUD (control centre) | animated HUD in Ghostty; solid near-black elsewhere |
+| 2 | Cyberdream HUD (control centre) | the Orb in Ghostty; solid near-black elsewhere |
 | 3 | VS Code Dark | solid neutral grey, easy on the eye |
 
-### The animated background (slot 2)
+### The Orb (slot 2's background)
 
 Neovim cannot draw behind its own text, but Ghostty can run a shader over the
-whole window. `shaders/hud.glsl` is that shader: a dot matrix, an instrument
-dial and corner brackets, all of which fade out around text. It also reacts
-to what you do:
+whole window. The Orb is that shader: an instrument dial in the top-right
+corner, a dot matrix and small effects, all fading out around text. It is its
+own project in `~/.config/orb` (see its README for setup, tuning, the browser
+preview and the `orb` shell command); this config is one of its clients.
 
-- each typed character gets a small flash, and the dial pulses with it;
-- a cursor jump leaves a brief streak from the old position to the new one;
-- the dial takes the cursor's colour, which slot 2 changes with the mode
-  (cyan normal, amber insert, indigo visual) and turns red in normal mode
-  while the file has an error from a language server or linter;
-- it dims while the window is unfocused and powers up when you come back.
-(`shaders/cyber-grid.glsl` is an alternative, a neon grid corridor.) When slot 2 is applied
-inside Ghostty, Neovim switches it on (and off again when you change slot or
-quit); see `lua/core/terminal.lua`.
-
-One-time setup: Ghostty must include a small file that Neovim writes. Run
-`:ThemeTerminalInfo` in Neovim and add the `config-file = ?...` line it prints
-to Ghostty's config. In iTerm or any other terminal, slot 2 simply uses a solid
-background.
-
-The background belongs to the Ghostty window, not to Neovim, so it also shows
-in plain shell tabs. `bin/hud` switches it from a shell: `hud` toggles,
-`hud on` pins it for the terminal, `hud off` hides it, `hud status` explains.
-While Neovim runs, its theme slot decides (slots 1 and 3 switch the background
-off even if it is pinned); when Neovim quits, a pinned background comes back. To have it as a command:
-
-```
-alias hud="$HOME/.config/nvim/bin/hud"
-```
-
-To tune the animation, edit the constants at the top of the shader. To preview
-it in a browser:
-
-```
-python3 -m http.server --directory ~/.config/nvim/shaders 8766
-```
-
-then open http://127.0.0.1:8766/preview.html?shader=hud.glsl. A slot can use any shader in
-`shaders/` through its `shader` field.
+- Slot 2 shows the orb, slots 1 and 3 hide it, and quitting Neovim hands the
+  terminal back as the `orb` command left it. See `lua/core/orb.lua`.
+- The orb takes the cursor's colour, which slot 2 changes with the mode (cyan
+  normal, amber insert, indigo visual) and turns red in normal mode while the
+  file has an error from a language server or linter. See `lua/core/cursor.lua`.
+- `:OrbInfo` shows whether everything it needs is in place. In iTerm or any
+  other terminal, or without the orb project, slot 2 uses a solid background.
 
 ### Adding or changing a theme
 

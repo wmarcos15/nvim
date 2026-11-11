@@ -12,17 +12,18 @@
 --      colorscheme  what you would type after :colorscheme
 --      setup        optional function(ctx), runs before the colorscheme is
 --                   applied; put the plugin's setup({...}) call here
---      shader       optional file in shaders/: an animated background, shown
---                   when running in Ghostty (lua/core/terminal.lua). setup
---                   and highlights get ctx.animated = true when it is active,
---                   so the theme can go transparent only then
+--      orb          true = show the Orb, the animated terminal background
+--                   from ~/.config/orb, when running in Ghostty
+--                   (lua/core/orb.lua). setup and highlights get
+--                   ctx.animated = true when it is showing, so the theme can
+--                   go transparent only then
 --      highlights   optional function(ctx) returning { Group = { fg=, bg=, ... } }
 --                   overrides, applied after the colorscheme
 --      statusline   "classic" | "slant" | "minimal" | "hud"   (see M.statuslines)
 --      cursor       optional { normal=, insert=, visual=, error= } hex colours:
 --                   the cursor changes colour with the mode, and turns
 --                   `error` when the buffer has an error (lua/core/cursor.lua).
---                   shaders/hud.glsl draws its dial in the cursor's colour
+--                   The Orb draws itself in the cursor's colour
 --      docs         optional colours for the keymap docs page, e.g.
 --                   { bg = "#101014" }. Anything left out is read from the
 --                   colorscheme itself. Transparent themes need `bg`.
@@ -80,13 +81,12 @@ M.slots = {
     --      amber on near-black, with the interface
     --      chrome reduced to thin cyan lines: outlined panels for pickers and
     --      floats, a flat statusline, dim rulers.
-    --      In Ghostty (once linked, see lua/core/terminal.lua) the background is
-    --      the animated shaders/hud.glsl; anywhere else it is solid.
-    --      (shaders/cyber-grid.glsl is an alternative: a neon grid corridor.)
+    --      In Ghostty (once set up, see lua/core/orb.lua) the background is
+    --      the Orb; anywhere else it is solid.
     {
         name = "Cyberdream HUD",
         colorscheme = "cyberdream",
-        shader = "hud.glsl",
+        orb = true,
         setup = function(ctx)
             require("cyberdream").setup({
                 transparent = ctx.animated, -- see-through only when there is something to see
@@ -116,7 +116,7 @@ M.slots = {
                 PreProc = { fg = indigo }, Include = { fg = indigo }, Define = { fg = indigo }, Macro = { fg = indigo },
                 Special = { fg = indigo }, SpecialChar = { fg = gold },
                 -- The cursor line is only a faint tint, close enough to the
-                -- background that the shader keeps drawing through it.
+                -- background that the orb keeps drawing through it.
                 CursorLine   = { bg = "#1a2127" },
                 Visual       = { bg = "#1f3a47" },
                 -- rulers
@@ -203,8 +203,8 @@ end
 
 local function activate(slot)
     applying = true
-    -- ctx.animated: this slot has a shader and the terminal can run it
-    local ctx = { animated = slot.shader ~= nil and require("core.terminal").can_animate() }
+    -- ctx.animated: this slot uses the orb and the terminal can show it
+    local ctx = { animated = slot.orb == true and require("core.orb").available() }
     local ok, err = pcall(function()
         if slot.setup then slot.setup(ctx) end
         vim.cmd.colorscheme(slot.colorscheme)
@@ -235,10 +235,8 @@ function M.apply(i, opts)
     M.current_colors_name = vim.g.colors_name
     M.statusline()
     if slot.cursor then require("core.cursor").enable(slot.cursor) else require("core.cursor").disable() end
-    local terminal = require("core.terminal")
-    if not (slot.shader and terminal.animate(slot.shader, (slot.docs or {}).bg or "#000000")) then
-        terminal.reset()
-    end
+    local orb = require("core.orb")
+    if not (slot.orb and orb.show((slot.docs or {}).bg or "#000000")) then orb.hide() end
     if not opts.temporary then save("slot=" .. i) end
     if not opts.silent then vim.notify(("Theme %d: %s"):format(i, slot.name)) end
     return true
@@ -271,7 +269,7 @@ vim.api.nvim_create_autocmd("ColorScheme", {
         local slot = M.slots[M.current]
         if slot and ev.match == M.current_colors_name then
             if slot.highlights then
-                local ctx = { animated = slot.shader ~= nil and require("core.terminal").can_animate() }
+                local ctx = { animated = slot.orb == true and require("core.orb").available() }
                 for group, hl in pairs(slot.highlights(ctx)) do
                     vim.api.nvim_set_hl(0, group, hl)
                 end

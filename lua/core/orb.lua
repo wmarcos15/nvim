@@ -1,32 +1,29 @@
--- lua/core/terminal.lua
+-- lua/core/orb.lua
 --
--- Animated terminal background for theme slots that name a `shader`.
+-- Neovim's side of the Orb, the animated terminal background that lives in
+-- ~/.config/orb (its README explains the whole thing, including the shell
+-- command `orb`).
 --
--- Neovim cannot draw behind its own text, but Ghostty can: it runs a custom
--- shader over the whole window. So when such a slot is applied inside Ghostty,
--- this module writes a tiny Ghostty config file that turns the shader on, and
--- asks Ghostty to reload (it reloads on SIGUSR2). Leaving the slot, or
--- quitting Neovim, turns it off again.
+-- Neovim cannot draw behind its own text, but Ghostty can run a shader over
+-- the whole window. A theme slot marked `orb = true` (lua/core/themes.lua)
+-- shows the orb; any other slot hides it; quitting hands the terminal back as
+-- the shell command left it. The switch is a small file that Ghostty's config
+-- includes, plus a reload signal.
 --
--- One-time setup: Ghostty has to include that file. Add this line to Ghostty's
--- config (~/Library/Application Support/com.mitchellh.ghostty/config):
+-- What the orb shows about the editor (mode, errors) travels through the
+-- cursor's colour: see lua/core/cursor.lua.
 --
---     config-file = ?<the path printed by :ThemeTerminalInfo>
---
--- The same switch is available from a shell as bin/hud (on / off / toggle).
---
--- Without that line, or in any other terminal (iTerm, ...), nothing here runs
--- and the slot falls back to a solid background.
+-- Needs: Ghostty, the orb project in ~/.config/orb, and its include line in
+-- Ghostty's config (`:OrbInfo` prints it). Without any of these, or in another
+-- terminal, nothing here runs and the slot uses a solid background.
 local M = {}
 
-M.include = vim.fn.stdpath("state") .. "/ghostty-theme.conf"
--- `bin/hud on` (the shell command) leaves this file: the background the user
--- pinned from a terminal. While Neovim runs, its theme slot decides (a slot
--- without a shader switches the background off even if it is pinned); when
--- Neovim quits, the terminal gets its pinned background back.
-M.pin = vim.fn.stdpath("state") .. "/ghostty-theme.pin"
-local shader_dir = vim.fn.stdpath("config") .. "/shaders/"
-local touched = false -- has this Neovim switched the background, on or off?
+local config = (vim.env.XDG_CONFIG_HOME or vim.fn.expand("~/.config")) .. "/orb"
+local state = (vim.env.XDG_STATE_HOME or vim.fn.expand("~/.local/state")) .. "/orb"
+M.shader = config .. "/orb.glsl"
+M.include = state .. "/ghostty.conf" -- the file Ghostty includes
+M.pin = state .. "/pin"              -- what `orb on` asked for in a shell
+local touched = false -- has this Neovim switched the orb, on or off?
 
 local function ghostty_configs()
     local xdg = vim.env.XDG_CONFIG_HOME or vim.fn.expand("~/.config")
@@ -52,9 +49,9 @@ function M.linked()
     return linked
 end
 
---- Can this session show an animated background right now?
-function M.can_animate()
-    return M.in_ghostty() and M.linked()
+--- Can this session show the orb right now?
+function M.available()
+    return M.in_ghostty() and M.linked() and vim.uv.fs_stat(M.shader) ~= nil
 end
 
 -- The Ghostty process this Neovim runs in: walk up the parent chain
@@ -89,54 +86,56 @@ M.reload_ghostty = reload_ghostty
 local function write(lines)
     local ok, old = pcall(vim.fn.readfile, M.include)
     if ok and vim.deep_equal(old, lines) then return end
+    vim.fn.mkdir(state, "p")
     vim.fn.writefile(lines, M.include)
     if not reload_ghostty() then
-        vim.notify("Theme: could not ask Ghostty to reload its config", vim.log.levels.WARN)
+        vim.notify("Orb: could not ask Ghostty to reload its config", vim.log.levels.WARN)
     end
 end
 
---- Turn on `shader` (a file in shaders/) over background colour `bg`.
-function M.animate(shader, bg)
-    if not M.can_animate() then return false end
+--- Show the orb over background colour `bg`. Returns false if it cannot.
+function M.show(bg)
+    if not M.available() then return false end
     touched = true
     write({
-        "# Written by Neovim (lua/core/terminal.lua). Do not edit.",
+        "# Written by Neovim (lua/core/orb.lua). Do not edit.",
         "background = " .. bg,
-        "custom-shader = " .. shader_dir .. shader,
+        "custom-shader = " .. M.shader,
         "custom-shader-animation = true",
     })
     return true
 end
 
---- Turn the shader off (the active theme slot has none).
-function M.reset()
-    if not M.can_animate() then return end
+--- Hide the orb (the active theme slot does not use it).
+function M.hide()
+    if not M.available() then return end
     touched = true
     write({})
 end
 
---- Neovim is quitting: hand the terminal back as `bin/hud` left it, which is
---- the pinned background if there is one and no shader otherwise.
+--- Neovim is quitting: hand the terminal back as the shell left it, which is
+--- the pinned orb if `orb on` was used and no orb otherwise.
 function M.restore()
-    if not (touched and M.can_animate()) then return end
+    if not (touched and M.available()) then return end
     local ok, pinned = pcall(vim.fn.readfile, M.pin)
     write(ok and pinned or {})
 end
 
 vim.api.nvim_create_autocmd("VimLeavePre", {
-    group = vim.api.nvim_create_augroup("user_terminal_bg", { clear = true }),
+    group = vim.api.nvim_create_augroup("user_orb", { clear = true }),
     callback = M.restore,
 })
 
-vim.api.nvim_create_user_command("ThemeTerminalInfo", function()
+vim.api.nvim_create_user_command("OrbInfo", function()
     print(table.concat({
         "Terminal:            " .. (vim.env.TERM_PROGRAM or "unknown"),
+        "Orb project:         " .. (vim.uv.fs_stat(M.shader) and config or ("not found at " .. config)),
         "Ghostty include:     config-file = ?" .. M.include,
         "Included by Ghostty: " .. tostring(M.linked()),
-        "Animated background: " .. (M.can_animate() and "available" or "not available here (solid background is used)"),
-        "Pinned from a shell: " .. (vim.uv.fs_stat(M.pin) and "yes (comes back when Neovim quits; bin/hud off to release)" or "no"),
+        "Orb:                 " .. (M.available() and "available" or "not available here (solid background is used)"),
+        "Pinned from a shell: " .. (vim.uv.fs_stat(M.pin) and "yes (comes back when Neovim quits; `orb off` to release)" or "no"),
         "Ghostty process:     " .. tostring(find_ghostty() or "not found among this Neovim's parents"),
     }, "\n"))
-end, { desc = "Show whether the animated theme background can run in this terminal" })
+end, { desc = "Show whether the Orb background can run in this terminal" })
 
 return M

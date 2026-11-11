@@ -10,8 +10,8 @@
 --              (from a language server or a linter)
 --
 -- This is more than decoration. A terminal shader cannot be told anything by
--- Neovim, but it can see the cursor's colour, so shaders/hud.glsl draws its
--- dial in that colour: the cursor is how the editor's state reaches the
+-- Neovim, but it can see the cursor's colour, so the Orb (lua/core/orb.lua)
+-- draws itself in that colour: the cursor is how the editor's state reaches the
 -- background. Insert and visual keep their own colour even when there are
 -- errors, so the dial does not flash red at half-typed code.
 local M = {}
