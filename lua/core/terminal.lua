@@ -54,7 +54,9 @@ local function write(lines, wait)
     local ok, old = pcall(vim.fn.readfile, M.include)
     if ok and vim.deep_equal(old, lines) then return end
     vim.fn.writefile(lines, M.include)
-    local job = vim.system({ "pkill", "-USR2", "-x", "ghostty" })
+    -- -a: pkill skips its own ancestors by default, and Ghostty is one (it
+    -- started the shell that started this Neovim).
+    local job = vim.system({ "pkill", "-a", "-USR2", "-x", "ghostty" })
     if wait then job:wait(1000) end
 end
 
