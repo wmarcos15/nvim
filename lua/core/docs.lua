@@ -19,6 +19,18 @@ local group_order = {
     "Editing", "Text objects", "Movement", "Windows", "Files", "Toggles", "Themes", "General",
 }
 
+-- JSON object with its keys in a fixed order, so regenerating the file does
+-- not produce a diff when nothing changed (Lua tables have no stable order).
+local function object(tbl, order)
+    local parts = {}
+    for _, key in ipairs(order) do
+        if tbl[key] ~= nil then
+            table.insert(parts, vim.json.encode(key) .. ":" .. vim.json.encode(tbl[key]))
+        end
+    end
+    return "{" .. table.concat(parts, ",") .. "}"
+end
+
 --- Write docs/keymaps.js. Returns the number of keymaps written.
 function M.generate()
     -- Plugins that record their own keys when they load
@@ -58,15 +70,12 @@ function M.generate()
         "  themes: [",
     }
     for _, palette in ipairs(require("core.themes").palettes()) do
-        table.insert(lines, "    " .. vim.json.encode(palette) .. ",")
+        table.insert(lines, "    " .. object(palette, { "name", "bg", "fg", "muted", "accent", "accent2", "string", "warn" }) .. ",")
     end
     table.insert(lines, "  ],")
     table.insert(lines, "  keymaps: [")
     for _, e in ipairs(entries) do
-        table.insert(lines, "    " .. vim.json.encode({
-            keys = e.keys, modes = e.modes, desc = e.desc, group = e.group,
-            tags = e.tags, lang = e.lang, where = e.where,
-        }) .. ",")
+        table.insert(lines, "    " .. object(e, { "keys", "modes", "desc", "group", "lang", "where", "tags" }) .. ",")
     end
     table.insert(lines, "  ],")
     table.insert(lines, "};")
