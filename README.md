@@ -72,13 +72,15 @@ is remembered.
 | Slot | Theme | Background |
 |---|---|---|
 | 1 | Kanagawa Wave | transparent: your terminal's background or image shows through |
-| 2 | Cyberdream (futuristic) | animated neon grid in Ghostty; solid near-black elsewhere |
+| 2 | Cyberdream HUD (control centre) | animated HUD in Ghostty; solid near-black elsewhere |
 | 3 | VS Code Dark | solid neutral grey, easy on the eye |
 
 ### The animated background (slot 2)
 
 Neovim cannot draw behind its own text, but Ghostty can run a shader over the
-whole window. `shaders/cyber-grid.glsl` is that shader. When slot 2 is applied
+whole window. `shaders/hud.glsl` is that shader: a dot matrix, an instrument
+dial and corner brackets, all of which fade out around text.
+(`shaders/cyber-grid.glsl` is an alternative, a neon grid corridor.) When slot 2 is applied
 inside Ghostty, Neovim switches it on (and off again when you change slot or
 quit); see `lua/core/terminal.lua`.
 
@@ -94,7 +96,7 @@ it in a browser:
 python3 -m http.server --directory ~/.config/nvim/shaders 8766
 ```
 
-then open http://127.0.0.1:8766/preview.html. A slot can use any shader in
+then open http://127.0.0.1:8766/preview.html?shader=hud.glsl. A slot can use any shader in
 `shaders/` through its `shader` field.
 
 ### Adding or changing a theme

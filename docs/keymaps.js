@@ -4,7 +4,7 @@ window.NVIM_DOCS = {
   groups: ["Find","LSP","Code","Harpoon","Git","Run","Debug","Completion","Editing","Text objects","Movement","Windows","Files","Toggles","Themes","General"],
   themes: [
     {"name":"Kanagawa Wave","bg":"#1F1F28","fg":"#dcd7ba","muted":"#727169","accent":"#7e9cd8","accent2":"#957fb8","string":"#98bb6c","warn":"#ff9e3b"},
-    {"name":"Cyberdream","bg":"#16181a","fg":"#ffffff","muted":"#7b8496","accent":"#5ef1ff","accent2":"#ff5ea0","string":"#5eff6c","warn":"#f1ff5e"},
+    {"name":"Cyberdream HUD","bg":"#16181a","fg":"#ffffff","muted":"#7b8496","accent":"#5ef1ff","accent2":"#ffbd5e","string":"#5eff6c","warn":"#f1ff5e"},
     {"name":"VS Code Dark","bg":"#1f1f1f","fg":"#d4d4d4","muted":"#6a9955","accent":"#dcdcaa","accent2":"#c586c0","string":"#ce9178","warn":"#dcdcaa"},
   ],
   keymaps: [
@@ -128,7 +128,7 @@ window.NVIM_DOCS = {
     {"keys":"<leader>tf","modes":["n"],"desc":"Toggle format on save","group":"Toggles","tags":"autoformat"},
     {"keys":"<leader>tb","modes":["n"],"desc":"Toggle inline git blame","group":"Toggles"},
     {"keys":"<leader>t1","modes":["n"],"desc":"Theme 1: Kanagawa Wave","group":"Themes","tags":"colorscheme colours look switch change"},
-    {"keys":"<leader>t2","modes":["n"],"desc":"Theme 2: Cyberdream","group":"Themes","tags":"colorscheme colours look switch change"},
+    {"keys":"<leader>t2","modes":["n"],"desc":"Theme 2: Cyberdream HUD","group":"Themes","tags":"colorscheme colours look switch change"},
     {"keys":"<leader>t3","modes":["n"],"desc":"Theme 3: VS Code Dark","group":"Themes","tags":"colorscheme colours look switch change"},
     {"keys":"<leader>tn","modes":["n"],"desc":"Next theme slot","group":"Themes","tags":"cycle colorscheme switch change"},
     {"keys":"<leader>tt","modes":["n"],"desc":"Browse all colorschemes with live preview","group":"Themes","tags":"telescope pick theme switch change"},

@@ -17,11 +17,11 @@
 <script>
 // Runs a shader from this folder the way Ghostty would, over a fake screen of
 // code, so you can tune it without restarting anything.
-//   preview.html                 -> cyber-grid.glsl
+//   preview.html                 -> hud.glsl
 //   preview.html?shader=foo.glsl -> foo.glsl
 // Needs to be served over http (fetch does not work from file://):
 //   python3 -m http.server --directory ~/.config/nvim/shaders 8766
-const file = new URLSearchParams(location.search).get("shader") || "cyber-grid.glsl";
+const file = new URLSearchParams(location.search).get("shader") || "hud.glsl";
 const BG = [0x16 / 255, 0x18 / 255, 0x1a / 255];
 document.getElementById("name").textContent = file;
 

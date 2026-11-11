@@ -18,7 +18,7 @@
 --                   so the theme can go transparent only then
 --      highlights   optional function(ctx) returning { Group = { fg=, bg=, ... } }
 --                   overrides, applied after the colorscheme
---      statusline   "classic" | "slant" | "minimal"   (see M.statuslines)
+--      statusline   "classic" | "slant" | "minimal" | "hud"   (see M.statuslines)
 --      docs         optional colours for the keymap docs page, e.g.
 --                   { bg = "#101014" }. Anything left out is read from the
 --                   colorscheme itself. Transparent themes need `bg`.
@@ -72,37 +72,52 @@ M.slots = {
         docs = { bg = "#1F1F28" },
     },
 
-    -- 2 ── futuristic: neon on near-black, angled statusline, borderless pickers.
+    -- 2 ── control centre: Cyberdream's neon on near-black, with the interface
+    --      chrome reduced to thin cyan lines: outlined panels for pickers and
+    --      floats, a flat statusline, dim rulers.
     --      In Ghostty (once linked, see lua/core/terminal.lua) the background is
-    --      the animated shaders/cyber-grid.glsl; anywhere else it is solid.
+    --      the animated shaders/hud.glsl; anywhere else it is solid.
+    --      (shaders/cyber-grid.glsl is an alternative: a neon grid corridor.)
     {
-        name = "Cyberdream",
+        name = "Cyberdream HUD",
         colorscheme = "cyberdream",
-        shader = "cyber-grid.glsl",
+        shader = "hud.glsl",
         setup = function(ctx)
             require("cyberdream").setup({
                 transparent = ctx.animated, -- see-through only when there is something to see
                 italic_comments = true,
-                borderless_pickers = true,
+                borderless_pickers = false, -- panels get a thin outline instead
                 terminal_colors = true,
             })
         end,
         highlights = function(ctx)
-            local hl = {
-                CursorLineNr = { fg = "#5ef1ff", bold = true },
-                LineNr       = { fg = "#3c4048" },
-                WinSeparator = { fg = "#3c4048" },
-                PmenuSel     = { fg = "#16181a", bg = "#5ef1ff", bold = true },
+            local cyan, line, dim = "#5ef1ff", "#2a6f7a", "#3c4048"
+            local panel = ctx.animated and "none" or "#16181a"
+            return {
+                -- rulers
+                CursorLineNr = { fg = cyan, bold = true },
+                LineNr       = { fg = dim },
+                WinSeparator = { fg = line },
+                -- panels: floats, pickers, completion and hover windows
+                NormalFloat  = { bg = panel },
+                FloatBorder  = { fg = line, bg = panel },
+                FloatTitle   = { fg = cyan, bg = panel, bold = true },
+                TelescopeNormal        = { bg = panel },
+                TelescopeBorder        = { fg = line, bg = panel },
+                TelescopePromptBorder  = { fg = cyan, bg = panel },
+                TelescopeTitle         = { fg = cyan, bg = panel, bold = true },
+                TelescopePromptTitle   = { fg = cyan, bg = panel, bold = true },
+                TelescopeResultsTitle  = { fg = cyan, bg = panel, bold = true },
+                TelescopePreviewTitle  = { fg = cyan, bg = panel, bold = true },
+                TelescopePromptPrefix  = { fg = cyan },
+                TelescopeSelectionCaret = { fg = cyan },
+                TelescopeMatching      = { fg = cyan, bold = true },
+                PmenuSel     = { fg = "#16181a", bg = cyan, bold = true },
                 LspInlayHint = { fg = "#7b8496", italic = true },
             }
-            if ctx.animated then
-                hl.NormalFloat = { bg = "none" }
-                hl.FloatBorder = { fg = "#5ef1ff", bg = "none" }
-            end
-            return hl
         end,
-        statusline = "slant",
-        docs = { bg = "#16181a", accent = "#5ef1ff", accent2 = "#ff5ea0" },
+        statusline = "hud",
+        docs = { bg = "#16181a", accent = "#5ef1ff", accent2 = "#ffbd5e" },
     },
 
     -- 3 ── mainstream and calm: VS Code's default dark theme, solid background
@@ -122,6 +137,7 @@ M.statuslines = {
     classic = { component = "|", section = { left = "", right = "" } },
     slant   = { component = { left = "\u{e0bb}", right = "\u{e0bb}" }, section = { left = "\u{e0bc}", right = "\u{e0ba}" } },
     minimal = { component = "", section = { left = "", right = "" } },
+    hud     = { component = "\u{2502}", section = { left = "", right = "" }, upper = true },
 }
 
 -- ── Implementation ─────────────────────────────────────────────────────
@@ -147,7 +163,8 @@ function M.statusline()
             section_separators = shape.section,
         },
         sections = {
-            lualine_a = { "mode" },
+            -- "hud" shows the mode as a bracketed readout: [ NORMAL ]
+            lualine_a = { { "mode", fmt = shape.upper and function(m) return "[ " .. m .. " ]" end or nil } },
             lualine_b = { "branch", "diff", "diagnostics" },
             lualine_c = { { "filename", path = 1 } },
             lualine_x = { "encoding", "filetype" },
