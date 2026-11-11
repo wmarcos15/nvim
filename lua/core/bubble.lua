@@ -55,6 +55,12 @@ local function wrap(text, width, max_lines)
     return out
 end
 
+--- The screen row the cursor is on (worked out from the window, so it is
+--- right even before the screen has been redrawn).
+local function cursor_row()
+    return vim.fn.win_screenpos(0)[1] + vim.fn.winline() - 1
+end
+
 --- For each screen row, the rightmost column that holds text, looking only at
 --- the `reach` columns nearest the right edge. Reads the screen itself, so
 --- code, inlay hints, blame text and other panels all count. The cursor's row
@@ -71,7 +77,7 @@ local function text_edges(reach)
             end
         end
     end
-    edges[vim.fn.screenrow()] = columns
+    edges[cursor_row()] = columns
     return edges
 end
 
@@ -285,7 +291,7 @@ function M.set_active(on)
     vim.api.nvim_create_autocmd("CursorMoved", {
         group = group,
         callback = function()
-            local row = vim.fn.screenrow()
+            local row = cursor_row()
             if box and row >= box.top and row <= box.bottom then refresh() end
         end,
     })
