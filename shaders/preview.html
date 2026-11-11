@@ -68,6 +68,7 @@ fetch(file, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(file +
 precision highp float;
 uniform vec3 iResolution; uniform float iTime; uniform sampler2D iChannel0; uniform vec3 iBackgroundColor;
 uniform vec4 iCurrentCursor; uniform vec4 iPreviousCursor; uniform float iTimeCursorChange;
+uniform vec4 iCurrentCursorColor; uniform int iFocus; uniform float iTimeFocus;
 out vec4 outColor;
 ${src}
 void main() { mainImage(outColor, gl_FragCoord.xy); }`;
@@ -105,19 +106,35 @@ in vec2 p; void main() { gl_Position = vec4(p, 0.0, 1.0); }`;
 
   const u = n => gl.getUniformLocation(prog, n);
   // ?t=12.5 freezes time at that second (for screenshots)
-  const frozen = new URLSearchParams(location.search).get("t");
+  const params = new URLSearchParams(location.search);
+  const frozen = params.get("t");
   const start = performance.now();
   (function frame() {
     gl.uniform3f(u("iResolution"), canvas.width, canvas.height, 1);
     const now = frozen !== null ? +frozen : (performance.now() - start) / 1000;
     gl.uniform1f(u("iTime"), now);
-    // Fake typing on the cursor line: one character every 0.4 s, 40 per run.
+    // Fake cursor on the cursor line. Default: typing, one character every
+    // 0.4 s. ?jump=1: a jump across the screen every 0.8 s instead.
     const size = Math.round(15 * devicePixelRatio), lh = Math.round(size * 1.45), cw = size * 0.6;
-    const step = Math.floor(now / 0.4), col = step % 40;
-    const cx = c => size * 26 + c * cw, top = canvas.height - lh * 5;   // y is up, as in Ghostty
-    gl.uniform4f(u("iCurrentCursor"), cx(col), top, cw, lh);
-    gl.uniform4f(u("iPreviousCursor"), cx(col - 1), top, cw, lh);
-    gl.uniform1f(u("iTimeCursorChange"), step * 0.4);
+    const top = canvas.height - lh * 5;                                  // y is up, as in Ghostty
+    if (params.get("jump")) {
+      const step = Math.floor(now / 0.8), far = [size * 60, top - lh * 22], near = [size * 26, top];
+      const [cur, prev] = step % 2 ? [far, near] : [near, far];
+      gl.uniform4f(u("iCurrentCursor"), cur[0], cur[1], cw, lh);
+      gl.uniform4f(u("iPreviousCursor"), prev[0], prev[1], cw, lh);
+      gl.uniform1f(u("iTimeCursorChange"), step * 0.8);
+    } else {
+      const step = Math.floor(now / 0.4), col = step % 40, cx = c => size * 26 + c * cw;
+      gl.uniform4f(u("iCurrentCursor"), cx(col), top, cw, lh);
+      gl.uniform4f(u("iPreviousCursor"), cx(col - 1), top, cw, lh);
+      gl.uniform1f(u("iTimeCursorChange"), step * 0.4);
+    }
+    // ?mode=insert|visual|error: the cursor colour Neovim would set.
+    const cursor = { insert: [1, 0.72, 0.42], visual: [0.56, 0.62, 1], error: [1, 0.43, 0.37] }[params.get("mode")] || [0.37, 0.95, 1];
+    gl.uniform4f(u("iCurrentCursorColor"), ...cursor, 1);
+    // ?focus=0: window unfocused. ?woke=11.6: focus gained at that second.
+    gl.uniform1i(u("iFocus"), params.get("focus") === "0" ? 0 : 1);
+    gl.uniform1f(u("iTimeFocus"), +(params.get("woke") || 0));
     gl.uniform3f(u("iBackgroundColor"), ...BG);
     gl.uniform1i(u("iChannel0"), 0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);

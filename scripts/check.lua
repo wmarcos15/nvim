@@ -10,7 +10,8 @@
 --   * the expected linters report something on the deliberately buggy samples
 --   * no keymap is a prefix of another (which would cause a timeoutlen delay)
 --   * the keymap docs generate
---   * all three theme slots apply
+--   * all three theme slots apply; cursor colours follow mode and errors
+--   * the start screen opens
 -- Exit code 0 = everything passed. Java is slow the first time (jdtls builds
 -- its workspace), so allow a minute or two.
 local dir = vim.fn.stdpath("config") .. "/scripts/samples/"
@@ -134,8 +135,37 @@ for i, slot in ipairs(themes.slots) do
     local applied = themes.apply(i, { silent = true, temporary = true })
     report(applied and vim.g.colors_name ~= nil, ("theme slot %d applies (%s)"):format(i, slot.name), vim.g.colors_name)
 end
-if before then themes.apply(before, { silent = true, temporary = true }) end
 report(#themes.slots >= 3, "at least 3 theme slots")
+
+-- Cursor colour by mode (slots with `cursor`), and red on errors
+local cursor = require("core.cursor")
+for i, slot in ipairs(themes.slots) do
+    themes.apply(i, { silent = true, temporary = true })
+    local themed = vim.o.guicursor:find("ThemeCursor", 1, true) ~= nil
+    report(themed == (slot.cursor ~= nil), ("theme slot %d: cursor colours %s"):format(i, slot.cursor and "on" or "off"), vim.o.guicursor)
+    if slot.cursor and slot.cursor.error then
+        vim.cmd("enew")
+        local ns = vim.api.nvim_create_namespace("check_cursor")
+        local clean = cursor.normal_color()
+        vim.diagnostic.set(ns, 0, { { lnum = 0, col = 0, message = "x", severity = vim.diagnostic.severity.ERROR } })
+        local broken = cursor.normal_color()
+        vim.wait(100)
+        local group_used = vim.o.guicursor:find("ThemeCursorError", 1, true) ~= nil
+        vim.diagnostic.reset(ns, 0)
+        report(clean == slot.cursor.normal and broken == slot.cursor.error and group_used and cursor.normal_color() == clean,
+            ("theme slot %d: cursor turns red on an error and back"):format(i), ("%s -> %s"):format(clean, broken))
+        vim.cmd("bwipeout!")
+    end
+end
+if before then themes.apply(before, { silent = true, temporary = true }) end
+
+-- Start screen
+vim.cmd("tabnew")
+local start_ok, start_buf = pcall(function() return require("core.start").open() end)
+local start_lines = start_ok and #vim.tbl_filter(function(l) return l ~= "" end, vim.api.nvim_buf_get_lines(start_buf, 0, -1, false)) or 0
+report(start_ok and start_lines >= 3 and vim.bo.filetype == "start", "start screen opens", start_ok and (start_lines .. " lines") or tostring(start_buf))
+report(not require("core.start").wanted(), "start screen stays away when a buffer is in use")
+vim.cmd("tabclose!")
 
 -- Anything that went wrong along the way
 local messages = vim.fn.execute("messages")

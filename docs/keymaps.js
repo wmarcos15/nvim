@@ -124,6 +124,8 @@ window.NVIM_DOCS = {
     {"keys":"<leader>e","modes":["n"],"desc":"File explorer (netrw) in this file's folder","group":"Files","tags":"browse directory tree"},
     {"keys":"<leader>x","modes":["n"],"desc":"Make current file executable","group":"Files","tags":"chmod script"},
     {"keys":"<leader>u","modes":["n"],"desc":"Undo history tree","group":"Files","tags":"undotree revert time travel"},
+    {"keys":"1 … 8","modes":["n"],"desc":"Open that recent file","group":"Files","where":"on the start screen","tags":"dashboard home welcome"},
+    {"keys":"<CR>","modes":["n"],"desc":"Open the recent file on this line","group":"Files","where":"on the start screen","tags":"dashboard home welcome"},
     {"keys":"<leader>th","modes":["n"],"desc":"Toggle inlay hints","group":"Toggles","tags":"types parameter names"},
     {"keys":"<leader>tf","modes":["n"],"desc":"Toggle format on save","group":"Toggles","tags":"autoformat"},
     {"keys":"<leader>tb","modes":["n"],"desc":"Toggle inline git blame","group":"Toggles"},

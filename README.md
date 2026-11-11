@@ -35,6 +35,8 @@ lua/core/
   options.lua            editor settings
   keymaps.lua            EVERY keymap (plus the registry the docs are built from)
   themes.lua             theme slots  <- edit this to add / change themes
+  cursor.lua             cursor colour by mode / on errors (for slots that ask)
+  start.lua              the start screen
   terminal.lua           animated background switch for Ghostty
   run.lua                what "run" and "build" mean per language
   autocmds.lua           small automations (yank flash, restore cursor, ...)
@@ -79,8 +81,15 @@ is remembered.
 
 Neovim cannot draw behind its own text, but Ghostty can run a shader over the
 whole window. `shaders/hud.glsl` is that shader: a dot matrix, an instrument
-dial and corner brackets, all of which fade out around text, plus a small
-flash on each typed character.
+dial and corner brackets, all of which fade out around text. It also reacts
+to what you do:
+
+- each typed character gets a small flash, and the dial pulses with it;
+- a cursor jump leaves a brief streak from the old position to the new one;
+- the dial takes the cursor's colour, which slot 2 changes with the mode
+  (cyan normal, amber insert, indigo visual) and turns red in normal mode
+  while the file has an error from a language server or linter;
+- it dims while the window is unfocused and powers up when you come back.
 (`shaders/cyber-grid.glsl` is an alternative, a neon grid corridor.) When slot 2 is applied
 inside Ghostty, Neovim switches it on (and off again when you change slot or
 quit); see `lua/core/terminal.lua`.
@@ -106,6 +115,11 @@ then open http://127.0.0.1:8766/preview.html?shader=hud.glsl. A slot can use any
 2. Add or edit an entry in `M.slots` in `lua/core/themes.lua` (the fields are
    documented at the top of that file). A 4th entry gets `Space t 4` on its own.
 3. Restart Neovim. The docs page picks up the new slot's colours too.
+
+## Start screen
+
+`nvim` with no file shows recent files (press `1`–`8`, or Enter on a line) and
+a few key reminders taken from the live keymaps. See `lua/core/start.lua`.
 
 ## Self-test
 
