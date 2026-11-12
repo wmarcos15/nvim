@@ -243,36 +243,9 @@ vim.diagnostic.reset(marks_ns, 0)
 vim.cmd("bwipeout!")
 if before then themes.apply(before, { silent = true, temporary = true }) end
 
--- The orb's speech bubble
-local bubble = require("core.bubble")
-bubble.set_active(true)
-vim.cmd("enew")
-local bubble_ns = vim.api.nvim_create_namespace("check_bubble")
-vim.diagnostic.set(bubble_ns, 0, { { lnum = 0, col = 0, message = "bubble check", severity = vim.diagnostic.severity.ERROR } })
-vim.wait(300)
-local said, said_level = bubble.showing()
-bubble.say("hello", "info", { source = "check" })
-vim.wait(300)
-local other = bubble.showing()
--- It must not cover text: fill the screen's right half and it has to go.
-local long = {}
-for i = 1, vim.o.lines do long[i] = string.rep("x", vim.o.columns - 10) end
-vim.api.nvim_buf_set_lines(0, 0, -1, false, long)
-vim.cmd("doautocmd TextChanged")   -- a script's edits do not announce themselves
-vim.wait(300)
-local crowded = bubble.showing()
-vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
-vim.cmd("doautocmd TextChanged")
-vim.wait(300)
-local roomy = bubble.showing()
-bubble.clear("check")
-vim.diagnostic.reset(bubble_ns, 0)
-vim.wait(300)
-report(said ~= nil and said:find("bubble check", 1, true) ~= nil and said_level == "error" and other == "hello" and bubble.showing() == nil,
-    "orb bubble speaks diagnostics, yields to other messages, and goes away", tostring(said))
-report(crowded == nil and roomy == "hello", "orb bubble never covers text", ("crowded=%s roomy=%s"):format(tostring(crowded), tostring(roomy)))
-bubble.set_active(false)
-vim.cmd("bwipeout!")
+-- The speech bubble is gone: the marks took its place.
+report(not pcall(require, "core.bubble"), "the orb's speech bubble is gone (core.bubble)")
+report(vim.fn.maparg("<leader>to", "n") == "", "<leader>to is not mapped")
 
 -- Start screen
 vim.cmd("tabnew")
