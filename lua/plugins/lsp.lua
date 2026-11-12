@@ -75,7 +75,7 @@ return {
                 },
                 underline = true,
                 update_in_insert = false,
-                severity_sort = true,
+                severity_sort = true, -- errors beat warnings in the sign column; the Orb's marks rely on it (lua/core/marks.lua)
                 float = { border = "rounded", source = true },
                 jump = { float = true }, -- ]d / [d open the message too
             })

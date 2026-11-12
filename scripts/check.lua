@@ -11,7 +11,7 @@
 --   * no keymap is a prefix of another (which would cause a timeoutlen delay)
 --   * the keymap docs generate
 --   * all three theme slots apply; cursor colours follow mode and errors
---   * the orb's speech bubble shows diagnostics
+--   * the orb's marks: error and warning signs become its code, and back
 --   * the start screen opens
 -- Exit code 0 = everything passed. Java is slow the first time (jdtls builds
 -- its workspace), so allow a minute or two.
@@ -165,6 +165,82 @@ for i, slot in ipairs(themes.slots) do
         vim.cmd("bwipeout!")
     end
 end
+if before then themes.apply(before, { silent = true, temporary = true }) end
+
+-- The orb's marks (lua/core/marks.lua): while the orb shows, error and
+-- warning signs become a code that its shader draws as a small dial; when it
+-- goes, the signs are exactly as before.
+local marks = require("core.marks")
+local sev = vim.diagnostic.severity
+local CODE = "\u{2580}\u{2580}"
+local sign_groups = { "DiagnosticSignError", "DiagnosticSignWarn", "DiagnosticSignInfo", "DiagnosticSignHint" }
+local function raw_hl(name) return vim.api.nvim_get_hl(0, { name = name }) end
+local function colours(name)
+    local hl = vim.api.nvim_get_hl(0, { name = name, link = false })
+    return ("%s/%s"):format(hl.fg and ("#%06x"):format(hl.fg) or "none", hl.bg and ("#%06x"):format(hl.bg) or "none")
+end
+
+local orb_slot
+for i, slot in ipairs(themes.slots) do
+    if slot.orb then
+        orb_slot = i
+        break
+    end
+end
+-- Headless there is no Ghostty: the orb's slot keeps the icons.
+themes.apply(orb_slot, { silent = true, temporary = true })
+local signs_before = vim.diagnostic.config().signs
+local hl_before = {}
+for _, name in ipairs(sign_groups) do hl_before[name] = raw_hl(name) end
+report(not marks.active() and signs_before.text[sev.ERROR] == "\u{f057}" and signs_before.text[sev.WARN] == "\u{f071}",
+    ("theme slot %d without Ghostty: signs keep their icons"):format(orb_slot), tostring(signs_before.text[sev.ERROR]))
+
+marks.set_active(true)
+local text = vim.diagnostic.config().signs.text
+report(text[sev.ERROR] == CODE and text[sev.WARN] == CODE
+        and text[sev.INFO] == signs_before.text[sev.INFO] and text[sev.HINT] == signs_before.text[sev.HINT]
+        and colours("DiagnosticSignError") == "#ff6e4e/#ff6e3e" and colours("DiagnosticSignWarn") == "#f1ff4e/#f1ff3e"
+        and vim.deep_equal(raw_hl("DiagnosticSignInfo"), hl_before.DiagnosticSignInfo)
+        and vim.deep_equal(raw_hl("DiagnosticSignHint"), hl_before.DiagnosticSignHint),
+    "orb marks: error and warning signs become the code",
+    colours("DiagnosticSignError") .. " " .. colours("DiagnosticSignWarn"))
+
+-- An error and a warning on the same line: the error's code is what shows.
+vim.cmd("enew")
+local marks_ns = vim.api.nvim_create_namespace("check_marks")
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { "one", "two", "three" })
+vim.diagnostic.set(marks_ns, 0, {
+    { lnum = 1, col = 0, message = "a warning", severity = sev.WARN },
+    { lnum = 1, col = 0, message = "a problem", severity = sev.ERROR },
+})
+vim.cmd("redraw")
+local corner = vim.fn.win_screenpos(0)   -- the window's top-left screen cell
+local row, col = corner[1] + 1, corner[2] -- buffer line 2; the signs are the window's first two columns
+local shown = vim.fn.screenstring(row, col) .. vim.fn.screenstring(row, col + 1)
+local top_sign
+for _, m in ipairs(vim.api.nvim_buf_get_extmarks(0, -1, { 1, 0 }, { 1, -1 }, { details = true, type = "sign" })) do
+    if m[4].sign_hl_group and (not top_sign or m[4].priority > top_sign.priority) then top_sign = m[4] end
+end
+report(shown == CODE and top_sign ~= nil and top_sign.sign_hl_group == "DiagnosticSignError",
+    "orb marks: the error beats a warning on the same line",
+    shown .. " " .. (top_sign and top_sign.sign_hl_group or "no sign"))
+
+-- Reloading the slot's own colorscheme (Neovim does it when it learns the
+-- terminal's background) must not wash the colours out.
+vim.cmd.colorscheme(themes.slots[orb_slot].colorscheme)
+report(colours("DiagnosticSignError") == "#ff6e4e/#ff6e3e" and colours("DiagnosticSignWarn") == "#f1ff4e/#f1ff3e"
+        and themes.current == orb_slot and marks.active(),
+    "orb marks: kept through a colorscheme reload", colours("DiagnosticSignError"))
+
+-- Off: the icons and the colorscheme's colours, exactly as before.
+marks.set_active(false)
+local restored = vim.deep_equal(vim.diagnostic.config().signs, signs_before)
+for _, name in ipairs(sign_groups) do
+    restored = restored and vim.deep_equal(raw_hl(name), hl_before[name])
+end
+report(restored and not marks.active(), "orb marks: off puts the icons and colours back", colours("DiagnosticSignError"))
+vim.diagnostic.reset(marks_ns, 0)
+vim.cmd("bwipeout!")
 if before then themes.apply(before, { silent = true, temporary = true }) end
 
 -- The orb's speech bubble

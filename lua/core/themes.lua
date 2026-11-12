@@ -83,7 +83,9 @@ M.slots = {
     --      chrome reduced to thin cyan lines: outlined panels for pickers and
     --      floats, a flat statusline, dim rulers.
     --      In Ghostty (once set up, see lua/core/orb.lua) the background is
-    --      the Orb; anywhere else it is solid.
+    --      the Orb, and every line with an error or a warning gets a small
+    --      copy of its dial in the sign column (lua/core/marks.lua); anywhere
+    --      else the background is solid and the signs are the usual icons.
     {
         name = "Cyberdream HUD",
         colorscheme = "cyberdream",
@@ -175,6 +177,7 @@ M.statuslines = {
 -- ── Implementation ─────────────────────────────────────────────────────
 local state_file = vim.fn.stdpath("state") .. "/theme"
 local applying = false
+local marks_turn = 0 -- counts theme switches, so a late "marks on" from an older switch is dropped
 M.current = nil
 
 local function save(line)
@@ -240,10 +243,21 @@ function M.apply(i, opts)
     M.current_colors_name = vim.g.colors_name
     M.statusline()
     if slot.cursor then require("core.cursor").enable(slot.cursor) else require("core.cursor").disable() end
-    local orb = require("core.orb")
+    local orb, marks = require("core.orb"), require("core.marks")
+    -- The orb's marks are a code only its shader can read: take them away
+    -- before the shader goes, and bring them a moment after it has come, so
+    -- a switch does not flash plain coloured blocks in the gutter.
+    marks_turn = marks_turn + 1
     local showing = slot.orb and orb.show((slot.docs or {}).bg or "#000000") or false
-    if not showing then orb.hide() end
-    require("core.bubble").set_active(showing) -- the orb's speech bubble
+    if showing then
+        local mine = marks_turn
+        vim.defer_fn(function()
+            if mine == marks_turn then marks.set_active(true) end
+        end, 200)
+    else
+        marks.set_active(false)
+        orb.hide()
+    end
     if not opts.temporary then save("slot=" .. i) end
     if not opts.silent then vim.notify(("Theme %d: %s"):format(i, slot.name)) end
     return true
@@ -284,8 +298,9 @@ vim.api.nvim_create_autocmd("ColorScheme", {
             return
         end
         M.current = nil
+        marks_turn = marks_turn + 1 -- a "marks on" still waiting from the last slot is dropped
         require("core.cursor").disable()
-        require("core.bubble").set_active(false)
+        require("core.marks").set_active(false)
         save("colorscheme=" .. ev.match)
     end,
 })
