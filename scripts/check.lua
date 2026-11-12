@@ -165,7 +165,6 @@ for i, slot in ipairs(themes.slots) do
         vim.cmd("bwipeout!")
     end
 end
-if before then themes.apply(before, { silent = true, temporary = true }) end
 
 -- The orb's marks (lua/core/marks.lua): while the orb shows, error and
 -- warning signs become a code that its shader draws as a small dial; when it
