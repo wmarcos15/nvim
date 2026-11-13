@@ -12,6 +12,8 @@
 --   * the keymap docs generate
 --   * all three theme slots apply; cursor colours follow mode and errors
 --   * the orb's marks: error and warning signs become its code, and back
+--   * the Orb's memory: note, plan panel, write-on-quit
+--   * the speech bubble: reminders, never covers text, goes away
 --   * the start screen opens
 -- Exit code 0 = everything passed. Java is slow the first time (jdtls builds
 -- its workspace), so allow a minute or two.
@@ -242,9 +244,255 @@ vim.diagnostic.reset(marks_ns, 0)
 vim.cmd("bwipeout!")
 if before then themes.apply(before, { silent = true, temporary = true }) end
 
--- The speech bubble is gone: the marks took its place.
-report(not pcall(require, "core.bubble"), "the orb's speech bubble is gone (core.bubble)")
 report(vim.fn.maparg("<leader>to", "n") == "", "<leader>to is not mapped")
+
+-- The Orb's memory (lua/core/memory.lua) and its speech bubble
+-- (lua/core/bubble.lua). Everything happens in temporary git projects, which
+-- are deleted again at the end; the session state, cwd and marks are put back.
+do
+    local memory = require("core.memory")
+    local bubble = require("core.bubble")
+    local start_cwd = vim.fn.getcwd()
+    local made = {}
+
+    local function realpath(path) return vim.uv.fs_realpath(path) or path end
+    local function make_dir(git)
+        local d = vim.fn.tempname()
+        vim.fn.mkdir(d, "p")
+        d = realpath(d)
+        if git then vim.fn.system({ "git", "-C", d, "init", "-q" }) end
+        table.insert(made, d)
+        return d
+    end
+    local function put(path, content)
+        vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+        vim.fn.writefile(content, path)
+    end
+    -- The bubble's title as plain text (Neovim gives it back as chunks).
+    local function title_chunks(w)
+        local t = vim.api.nvim_win_get_config(w).title
+        if type(t) == "string" then return { { t } } end
+        return t
+    end
+    local function title_text(w)
+        local out = {}
+        for _, chunk in ipairs(title_chunks(w)) do table.insert(out, chunk[1]) end
+        return table.concat(out)
+    end
+    local function press(keys) vim.api.nvim_feedkeys(vim.keycode(keys), "mx", false) end
+
+    local proj = make_dir(true)
+    vim.cmd("enew")
+
+    -- 1. The note is read without its marker and comments.
+    put(proj .. "/.orb/now.md", {
+        "<!-- orb: written 2025-01-31 18:40 -->",
+        "<!-- a one-line comment -->",
+        "Wiring the plan panel.",
+        "<!-- a comment",
+        "over two lines -->", -- leaves one empty line behind
+        "Next, tick boxes.",
+        "",
+    })
+    local note, by_orb = memory.read_note(proj)
+    report(note == "Wiring the plan panel.\n\nNext, tick boxes." and by_orb == true,
+        "memory: the note is read without its marker and comments", tostring(note))
+
+    -- 2. Saving the note by hand removes the marker.
+    local note_win = memory.edit_note(proj)
+    local note_buf = vim.api.nvim_win_get_buf(note_win)
+    vim.api.nvim_buf_set_lines(note_buf, 1, 2, false, { "My own words." })
+    vim.api.nvim_buf_call(note_buf, function() vim.cmd("write") end)
+    local on_disk = vim.fn.readfile(proj .. "/.orb/now.md")
+    local floating = vim.api.nvim_win_get_config(note_win).relative == "editor"
+    press("q")
+    report(on_disk[1] ~= nil and not on_disk[1]:match("^<!%-%- orb:") and memory.session.hand_saved[proj] == true
+            and floating and not vim.api.nvim_win_is_valid(note_win),
+        "memory: saving the note by hand removes the marker", tostring(on_disk[1]))
+
+    -- 3. The plan panel: from the template, x ticks and unticks, q closes and saves.
+    local planned = make_dir(true)
+    local plan_win, plan_buf = memory.plan(planned)
+    local from_template = vim.deep_equal(vim.fn.readfile(planned .. "/.orb/plan.md"), memory.template)
+    vim.api.nvim_buf_set_lines(plan_buf, -1, -1, false, { "- [ ] write tests" })
+    local item_line = vim.api.nvim_buf_line_count(plan_buf)
+    vim.api.nvim_win_set_cursor(plan_win, { item_line, 0 })
+    press("x")
+    local ticked = vim.fn.readfile(planned .. "/.orb/plan.md")[item_line]
+    press("x")
+    local unticked = vim.fn.readfile(planned .. "/.orb/plan.md")[item_line]
+    vim.api.nvim_buf_set_lines(plan_buf, -1, -1, false, { "- [ ] and more" }) -- unsaved: q must keep it
+    press("q")
+    local still_mapped = false
+    for _, m in ipairs(vim.api.nvim_buf_get_keymap(plan_buf, "n")) do
+        if m.lhs == "x" or m.lhs == "q" or m.lhs == "e" then still_mapped = true end
+    end
+    local saved_on_close = vim.fn.readfile(planned .. "/.orb/plan.md")[item_line + 1]
+    report(from_template and ticked == "- [x] write tests" and unticked == "- [ ] write tests"
+            and saved_on_close == "- [ ] and more" and not vim.api.nvim_win_is_valid(plan_win) and not still_mapped,
+        "memory: the plan panel opens from the template, x ticks and unticks, q closes and saves",
+        ("%s | %s | %s | mapped=%s"):format(tostring(ticked), tostring(unticked), tostring(saved_on_close), tostring(still_mapped)))
+
+    -- 4. Write-on-quit starts orb-note for written projects only.
+    local stub_dir = make_dir(false)
+    local args_file = stub_dir .. "/args"
+    put(stub_dir .. "/stub", { "#!/bin/sh", 'echo "$@" > "' .. args_file .. '"' })
+    vim.uv.fs_chmod(stub_dir .. "/stub", 493) -- 0755
+    local old_note_cmd = vim.env.ORB_NOTE
+    vim.env.ORB_NOTE = stub_dir .. "/stub"
+    memory.reset_session()
+    local function write_in(dirname, name)
+        vim.cmd("edit " .. vim.fn.fnameescape(dirname .. "/" .. name))
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "text" })
+        vim.cmd("write")
+    end
+    local plain = make_dir(false)
+    write_in(proj, "a.txt")        -- written ...
+    memory.session.hand_saved[proj] = true -- ... but its note was saved by hand: skipped
+    write_in(planned, "b.txt")     -- written, git: started
+    vim.cmd("cd " .. vim.fn.fnameescape(plain))
+    write_in(plain, "c.txt")       -- written, no git and no .orb/: skipped
+    vim.cmd("cd " .. vim.fn.fnameescape(start_cwd))
+    local recorded = memory.session.written[planned] ~= nil and memory.session.written[proj] ~= nil
+    local headless_started = memory.on_quit()
+    local started = memory.on_quit({ force = true })
+    vim.wait(2000, function() return vim.fn.filereadable(args_file) == 1 and #vim.fn.readfile(args_file) > 0 end, 50)
+    local args = vim.fn.filereadable(args_file) == 1 and vim.fn.readfile(args_file)[1] or ""
+    vim.env.ORB_NOTE = old_note_cmd
+    report(recorded and #headless_started == 0 and #started == 1 and started[1] == planned
+            and args == ("--since %d %s"):format(memory.started, planned),
+        "memory: write-on-quit starts orb-note for written projects only",
+        ("started=%s args=%s"):format(table.concat(started, ","), args))
+    memory.reset_session()
+
+    -- 5. The bubble says the reminder, titled " orb " while the orb is not showing.
+    vim.cmd("enew")
+    put(proj .. "/.orb/plan.md", { "# Plan", "", "## Now", "- [ ] step one" })
+    memory.remind({ root = proj })
+    vim.wait(500, function() return bubble.showing() ~= nil end, 20)
+    local said = bubble.showing()
+    local bubble_win = bubble.window()
+    local plain_title = bubble_win and title_text(bubble_win) or "no window"
+    report(said ~= nil and said:find("Last time:", 1, true) ~= nil and said:find("Next: step one", 1, true) ~= nil
+            and plain_title == " orb ",
+        "bubble: says the reminder", ("%s | title=%q"):format(tostring(said):gsub("\n", " / "), plain_title))
+    bubble.clear("memory")
+
+    -- 6. The speaking mark in the title while the orb shows.
+    marks.set_active(true)
+    bubble.say("x", nil, { source = "check" })
+    vim.wait(500, function() return bubble.window() ~= nil end, 20)
+    local marked = false
+    local shown_title = "no window"
+    if bubble.window() then
+        shown_title = title_text(bubble.window())
+        for _, chunk in ipairs(title_chunks(bubble.window())) do
+            if chunk[1] == CODE and chunk[2] == "OrbMarkSpeak" then marked = true end
+        end
+    end
+    bubble.clear("check")
+    marks.set_active(false)
+    local signs_back = vim.deep_equal(vim.diagnostic.config().signs, signs_before)
+    for _, name in ipairs(sign_groups) do
+        signs_back = signs_back and vim.deep_equal(raw_hl(name), hl_before[name])
+    end
+    report(marked and colours("OrbMarkSpeak") == "#5ef1ef/#5ef1df" and signs_back,
+        "bubble: the speaking mark in the title while the orb shows",
+        ("title=%q %s signs_back=%s"):format(shown_title, colours("OrbMarkSpeak"), tostring(signs_back)))
+
+    -- 7. It never covers text: fill the screen's right half and it has to go.
+    bubble.say("hello", nil, { source = "check" })
+    vim.wait(300)
+    local long = {}
+    for i = 1, vim.o.lines do long[i] = string.rep("x", vim.o.columns - 10) end
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, long)
+    vim.cmd("doautocmd TextChanged")   -- a script's edits do not announce themselves
+    vim.wait(300)
+    local crowded = bubble.showing()
+    vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+    vim.cmd("doautocmd TextChanged")
+    vim.wait(300)
+    local roomy = bubble.showing()
+    bubble.clear("check")
+    report(crowded == nil and roomy == "hello", "bubble: never covers text",
+        ("crowded=%s roomy=%s"):format(tostring(crowded), tostring(roomy)))
+
+    -- 8. It goes away: on its timeout, on InsertEnter (reminders only), on clear.
+    bubble.say("brief", nil, { source = "check", timeout = 400 })
+    local appeared = vim.wait(250, function() return bubble.showing() ~= nil end, 20)
+    vim.wait(700)
+    local timed_out = bubble.showing() == nil
+
+    bubble.say("reminder", nil, { source = "check", until_insert = true })
+    vim.wait(500, function() return bubble.showing() ~= nil end, 20)
+    press("i<Esc>")
+    vim.wait(300)
+    local insert_dropped = bubble.showing() == nil
+
+    bubble.say("keep", nil, { source = "check" })
+    vim.wait(500, function() return bubble.showing() ~= nil end, 20)
+    press("i<Esc>")
+    vim.wait(500, function() return bubble.showing() ~= nil end, 20)
+    local kept = bubble.showing() == "keep"
+
+    bubble.clear("check")
+    vim.wait(300)
+    local cleared = bubble.showing() == nil
+    local idle = #vim.api.nvim_get_autocmds({ group = "user_orb_bubble" }) == 0
+    report(appeared and timed_out and insert_dropped and kept and cleared and idle,
+        "bubble: goes away on timeout, on InsertEnter (reminders only) and on clear",
+        ("appeared=%s timeout=%s insert=%s kept=%s clear=%s no_autocmds=%s"):format(
+            tostring(appeared), tostring(timed_out), tostring(insert_dropped), tostring(kept), tostring(cleared), tostring(idle)))
+
+    -- 9. No diagnostics voice: an error alone makes the bubble say nothing.
+    local voice_ns = vim.api.nvim_create_namespace("check_bubble_voice")
+    vim.diagnostic.set(voice_ns, 0, { { lnum = 0, col = 0, message = "bubble check", severity = sev.ERROR } })
+    vim.wait(300)
+    local voice = bubble.showing()
+    vim.diagnostic.reset(voice_ns, 0)
+    report(voice == nil, "bubble: no diagnostics voice", tostring(voice))
+
+    -- 10. The Orb keys.
+    report(vim.fn.maparg("<leader>on", "n") ~= "" and vim.fn.maparg("<leader>oe", "n") ~= ""
+            and vim.fn.maparg("<leader>op", "n") ~= "" and vim.fn.maparg("<leader>o", "n") == "",
+        "Orb keys: <leader>on, <leader>oe, <leader>op are mapped and <leader>o is not")
+
+    -- 11. The docs page lists the Orb group.
+    local docs_ok = pcall(function() return require("core.docs").generate() end)
+    local groups_line
+    for _, l in ipairs(vim.fn.readfile(vim.fn.stdpath("config") .. "/docs/keymaps.js")) do
+        if l:match("^%s*groups:") then groups_line = l end
+    end
+    report(docs_ok and groups_line ~= nil and groups_line:find('"Orb"', 1, true) ~= nil,
+        "docs: the Orb group is in docs/keymaps.js")
+
+    -- 12. The orb-side tool, when installed, writes the marker line first.
+    local config_home = vim.env.XDG_CONFIG_HOME
+    if not config_home or config_home == "" then config_home = vim.env.HOME .. "/.config" end
+    local tool = config_home .. "/orb/bin/orb-note"
+    if vim.fn.executable(tool) == 1 then
+        local out = vim.fn.systemlist({ tool, "--no-model", "--dry-run", proj })
+        report(vim.v.shell_error == 0 and out[1] ~= nil and out[1]:match("^<!%-%- orb: written .- %-%->%s*$") ~= nil,
+            "orb-note: --no-model --dry-run starts with the marker", tostring(out[1]))
+    else
+        report(true, "orb-note: --no-model --dry-run starts with the marker (orb-note not installed: skipped)")
+    end
+
+    -- Put everything back: session state, buffers, cwd, the temporary projects.
+    memory.reset_session()
+    vim.cmd("cd " .. vim.fn.fnameescape(start_cwd))
+    for _, b in ipairs(vim.api.nvim_list_bufs()) do
+        local name = vim.api.nvim_buf_get_name(b)
+        for _, d in ipairs(made) do
+            if name:sub(1, #d) == d or name:sub(1, #d + 1) == (d .. "/") then
+                pcall(vim.api.nvim_buf_delete, b, { force = true })
+                break
+            end
+        end
+    end
+    vim.cmd("silent! bwipeout!")
+    for _, d in ipairs(made) do vim.fn.delete(d, "rf") end
+end
 
 -- Start screen
 vim.cmd("tabnew")
