@@ -11,6 +11,14 @@
 --             clang-tidy (analyzer)  path-sensitive bugs such as null
 --                                    dereferences; clangd skips these checks
 --
+-- The analyzer comes in two depths, because the thorough one takes seconds:
+--
+--   on save      quick: each function on its own. Finishes in about the time
+--                it takes to compile the file once.
+--   <leader>cl   deep (:LintDeep): also follows calls from one function into
+--                another, which finds more and takes several times longer.
+--                Its findings stay until the next save.
+--
 -- To add a linter for another language, add it to `by_ft` below, e.g.
 --   java = { "checkstyle" }
 -- (:help lint-linters lists what is supported). A linter whose program is
@@ -37,7 +45,7 @@ return {
             local clang_tidy = find_clang_tidy()
             if clang_tidy then
                 lint.linters.clangtidy.cmd = clang_tidy
-                lint.linters.clangtidy.args = {
+                local args = {
                     "--quiet",
                     -- Only the static analyzer: clangd already runs the rest.
                     "--checks=-*,clang-analyzer-*",
@@ -57,9 +65,18 @@ return {
                 if vim.fn.has("mac") == 1 then
                     local sdk = vim.fn.trim(vim.fn.system({ "xcrun", "--show-sdk-path" }))
                     if vim.v.shell_error == 0 and sdk ~= "" then
-                        table.insert(lint.linters.clangtidy.args, "--extra-arg=-isysroot" .. sdk)
+                        table.insert(args, "--extra-arg=-isysroot" .. sdk)
                     end
                 end
+
+                -- The deep analyzer is the same program under a second name,
+                -- so its findings are kept apart from the quick one's.
+                lint.linters.clangtidy_deep = vim.tbl_extend("force", {}, lint.linters.clangtidy, { args = args })
+                -- Quick = the analyzer's "shallow" mode (no following of calls).
+                lint.linters.clangtidy.args = vim.list_extend(vim.deepcopy(args), {
+                    "--extra-arg=-Xclang", "--extra-arg=-analyzer-config",
+                    "--extra-arg=-Xclang", "--extra-arg=mode=shallow",
+                })
             end
 
             -- cppcheck: nvim-lint's parser, our own flags (no "information"
@@ -92,8 +109,23 @@ return {
                 if not vim.api.nvim_buf_is_valid(buf) or vim.bo[buf].buftype ~= "" then return end
                 if not lint.linters_by_ft[vim.bo[buf].filetype] then return end
                 if vim.fn.filereadable(vim.api.nvim_buf_get_name(buf)) ~= 1 then return end
+                -- What the deep analyzer said was about the file as it was.
+                vim.diagnostic.reset(lint.get_namespace("clangtidy_deep"), buf)
                 vim.api.nvim_buf_call(buf, function() lint.try_lint() end)
             end
+
+            -- The deep analyzer, on request, on the file as saved.
+            vim.api.nvim_create_user_command("LintDeep", function()
+                local buf = vim.api.nvim_get_current_buf()
+                if not (clang_tidy and by_ft[vim.bo[buf].filetype]) then
+                    return vim.notify("LintDeep: nothing deeper for this kind of file")
+                end
+                if vim.bo[buf].modified then return vim.notify("LintDeep: save the file first") end
+                -- Its findings include the quick ones: show each only once.
+                vim.diagnostic.reset(lint.get_namespace("clangtidy"), buf)
+                lint.try_lint("clangtidy_deep")
+                vim.notify("Deep lint running…")
+            end, { desc = "Run the full static analyzer on this file" })
             vim.api.nvim_create_autocmd({ "FileType", "BufWritePost" }, {
                 group = vim.api.nvim_create_augroup("UserLint", { clear = true }),
                 callback = function(ev) vim.schedule(function() run(ev.buf) end) end,

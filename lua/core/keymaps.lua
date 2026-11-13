@@ -147,6 +147,10 @@ map({ "n", "x" }, "<leader>cf", function()
 end, { desc = "Format file or selection", group = "Code", tags = "prettier clang-format ruff indent tidy" })
 map("n", "<leader>cd", vim.diagnostic.open_float,
     { desc = "Show diagnostic under cursor", group = "Code", tags = "error message lint warning" })
+map("n", "<leader>cl", function()
+    -- The command exists once a C / C++ file has loaded the linters (lua/plugins/lint.lua).
+    if vim.fn.exists(":LintDeep") == 2 then vim.cmd.LintDeep() else vim.notify("Deep lint: only for C / C++ files") end
+end, { desc = "Deep lint: full static analyzer on this file (C / C++)", group = "Code", tags = "clang-tidy analyzer thorough slow bugs" })
 map("n", "<leader>cw", [[:%s/\<<C-r><C-w>\>/<C-r><C-w>/gI<Left><Left><Left>]],
     { desc = "Replace word under cursor in whole file", group = "Code", tags = "substitute rename", silent = false })
 map("n", "]e", function() vim.diagnostic.jump({ count = 1, severity = vim.diagnostic.severity.ERROR }) end,
