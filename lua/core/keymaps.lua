@@ -14,6 +14,7 @@
 --   <leader>g  git hunks             <leader>d  debug
 --   <leader>r  run / build           <leader>t  toggles + themes
 --   <leader>s  swap arguments        <leader>h  harpoon next / previous
+--   <leader>o  orb (note, plan)
 
 local M = { registry = {} }
 local seen = {}
@@ -172,6 +173,14 @@ map("n", "<leader>di", function() require("dap").step_into() end, { desc = "Debu
 map("n", "<leader>do", function() require("dap").step_out() end, { desc = "Debug: step out", group = "Debug" })
 map("n", "<leader>dt", function() require("dap").terminate() end, { desc = "Debug: stop session", group = "Debug", tags = "terminate quit" })
 map("n", "<leader>du", function() require("dap") require("dapui").toggle() end, { desc = "Debug: toggle UI panels", group = "Debug" })
+
+-- ── Orb: where you left off (lua/core/memory.lua) ─────────────────────
+map("n", "<leader>on", function() require("core.memory").remind() end,
+    { desc = "Orb: say where you left off", group = "Orb", tags = "memory note reminder last time resume now.md" })
+map("n", "<leader>oe", function() require("core.memory").edit_note() end,
+    { desc = "Orb: edit the where-you-left-off note", group = "Orb", tags = "memory note now.md write" })
+map("n", "<leader>op", function() require("core.memory").plan() end,
+    { desc = "Orb: plan panel (.orb/plan.md)", group = "Orb", tags = "todo tasks checklist roadmap" })
 
 -- ── Toggles ────────────────────────────────────────────────────────────
 map("n", "<leader>th", function()

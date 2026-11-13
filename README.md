@@ -37,6 +37,8 @@ lua/core/
   themes.lua             theme slots  <- edit this to add / change themes
   cursor.lua             cursor colour by mode / on errors (for slots that ask)
   start.lua              the start screen
+  memory.lua             the Orb remembers: .orb/now.md, .orb/plan.md, plan panel
+  bubble.lua             the Orb's speech bubble (reminders)
   orb.lua                shows / hides the Orb background (~/.config/orb)
   marks.lua              the Orb's marks: small dials beside lines with problems
   run.lua                what "run" and "build" mean per language
@@ -56,7 +58,8 @@ templates/clangd         starter .clangd for a C/C++ project
 ## Keymap rules
 
 - Leader is `Space`. Groups: `f` find, `c` code, `g` git, `d` debug, `r` run,
-  `t` toggles and themes, `s` swap arguments, `h` harpoon next/previous.
+  `t` toggles and themes, `s` swap arguments, `h` harpoon next/previous,
+  `o` orb (note, plan).
 - No key is a prefix of another, so nothing waits on a timeout.
   `scripts/check.lua` enforces this.
 - Neovim's own defaults are kept where they exist (`K`, `grn`, `gra`, `]d`,
@@ -93,6 +96,9 @@ preview and the `orb` shell command); this config is one of its clients.
   while a run / build or a language server is working. See `lua/core/cursor.lua`.
 - A small copy of the dial sits in the sign column on every line with an
   error (red) or a warning (yellow). See `lua/core/marks.lua`.
+- The speech bubble under the orb carries a small cyan dial in its title (the
+  speaking mark) while the orb shows; elsewhere it is a plain panel titled
+  "orb". See `lua/core/bubble.lua`.
 - `:OrbInfo` shows whether everything it needs is in place. In iTerm or any
   other terminal, or without the orb project, slot 2 uses a solid background.
 
@@ -108,6 +114,34 @@ preview and the `orb` shell command); this config is one of its clients.
 `nvim` with no file shows recent files (press `1`–`8`, or Enter on a line) and
 a few key reminders taken from the live keymaps. See `lua/core/start.lua`.
 
+## The Orb remembers
+
+Each project can keep two plain markdown files in a `.orb/` folder at its
+root (the git root, or the working directory outside git):
+
+- `.orb/now.md`: a short "where I left off" note.
+- `.orb/plan.md`: a checklist with Now / Next / Later / Done.
+
+Keys: `Space o n` says the note (and the next unchecked plan item) in the
+bubble, `Space o e` edits the note in a small float, `Space o p` opens the plan
+panel. In the panel `x` ticks or unticks the item under the cursor, `e` opens
+the file in a normal window, `q` or `Esc` closes it. Edits made in a float are
+saved when it closes.
+
+- **At start** the Orb says where you left off, for 12 seconds or until you
+  start typing. Nothing is said when the project has no note yet.
+- **On quit** the Orb writes the note in the background (`orb-note`, from
+  `~/.config/orb`): in git projects, or in folders that already have `.orb/`.
+  Quitting never waits for it. It uses git facts, or a local model if you set
+  one with `orb model` in the shell.
+- **A note you save yourself is kept.** Notes the Orb writes start with a
+  `<!-- orb: written ... -->` line; saving the note removes it, and a note
+  without it is not overwritten by a session that began before you saved it.
+- Keep `.orb/` out of git with a line in the project's `.gitignore` or in your
+  global ignore file (`~/.config/git/ignore`), or commit it to share the plan.
+
+See `lua/core/memory.lua`, and "Memory" in `~/.config/orb/README.md`.
+
 ## Self-test
 
 ```
@@ -116,7 +150,8 @@ nvim --headless -c "luafile scripts/check.lua"
 
 Opens a sample file per language and checks that the servers attach, linters
 report, formatters resolve, no keymaps collide, the docs generate and every
-theme slot applies. Run it after changing the config or updating plugins.
+theme slot applies, and the Orb's memory and bubble work. Run it after
+changing the config or updating plugins.
 
 ## Adding a language
 

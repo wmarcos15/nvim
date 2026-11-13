@@ -16,7 +16,7 @@ local port = 8765
 
 local group_order = {
     "Find", "LSP", "Code", "Harpoon", "Git", "Run", "Debug", "Completion",
-    "Editing", "Text objects", "Movement", "Windows", "Files", "Toggles", "Themes", "General",
+    "Editing", "Text objects", "Movement", "Windows", "Files", "Orb", "Toggles", "Themes", "General",
 }
 
 -- JSON object with its keys in a fixed order, so regenerating the file does
