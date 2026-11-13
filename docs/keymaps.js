@@ -130,6 +130,8 @@ window.NVIM_DOCS = {
     {"keys":"<leader>on","modes":["n"],"desc":"Orb: say where you left off","group":"Orb","tags":"memory note reminder last time resume now.md"},
     {"keys":"<leader>oe","modes":["n"],"desc":"Orb: edit the where-you-left-off note","group":"Orb","tags":"memory note now.md write"},
     {"keys":"<leader>op","modes":["n"],"desc":"Orb: plan panel (.orb/plan.md)","group":"Orb","tags":"todo tasks checklist roadmap"},
+    {"keys":"<leader>os","modes":["n"],"desc":"Orb: tell it the next step (add, tick, move or drop a plan item)","group":"Orb","tags":"say plan next step todo add tick done move reorder drop forget orb say"},
+    {"keys":"<leader>ou","modes":["n"],"desc":"Orb: undo its last change to the plan","group":"Orb","tags":"say plan revert restore orb say --undo"},
     {"keys":"<Esc>","modes":["n"],"desc":"Close the plan panel (saves your edits)","group":"Orb","where":"in the plan panel"},
     {"keys":"e","modes":["n"],"desc":"Open the plan in a normal window","group":"Orb","where":"in the plan panel"},
     {"keys":"q","modes":["n"],"desc":"Close the plan panel (saves your edits)","group":"Orb","where":"in the plan panel"},

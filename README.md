@@ -39,6 +39,7 @@ lua/core/
   start.lua              the start screen
   memory.lua             the Orb remembers: .orb/now.md, .orb/plan.md, plan panel
   bubble.lua             the Orb's speech bubble (reminders)
+  tell.lua               tell the Orb the next step (orb say)
   orb.lua                shows / hides the Orb background (~/.config/orb)
   marks.lua              the Orb's marks: small dials beside lines with problems
   run.lua                what "run" and "build" mean per language
@@ -59,7 +60,7 @@ templates/clangd         starter .clangd for a C/C++ project
 
 - Leader is `Space`. Groups: `f` find, `c` code, `g` git, `d` debug, `r` run,
   `t` toggles and themes, `s` swap arguments, `h` harpoon next/previous,
-  `o` orb (note, plan).
+  `o` orb (note, plan, tell).
 - No key is a prefix of another, so nothing waits on a timeout.
   `scripts/check.lua` enforces this.
 - Neovim's own defaults are kept where they exist (`K`, `grn`, `gra`, `]d`,
@@ -130,6 +131,15 @@ panel. In the panel `x` ticks or unticks the item under the cursor, `e` opens
 the file in a normal window, `q` or `Esc` closes it. Edits made in a float are
 saved when it closes.
 
+`Space o s` asks one line, "Tell the Orb: ", and the Orb adds, ticks, moves or
+drops one plan item to match your sentence (for example "Next time I'll make
+canFullyFill policy-aware" becomes the first unchecked step). The cursor is
+violet while it works, and the result is said in the bubble (an ordinary
+message in the other theme slots); a plan that is open shows the change.
+`Space o u` undoes the Orb's last change to the plan. A plan buffer with
+unsaved edits is refused, and without a model your sentence is added in your
+own words. See "Telling the Orb the next step" in `~/.config/orb/README.md`.
+
 - **At start** (slot 2) the Orb says where you left off, for 12 seconds or
   until you start typing. A git project that has no note yet gets one
   written there and then, which takes a few seconds; the same happens when
@@ -144,7 +154,7 @@ saved when it closes.
 - Keep `.orb/` out of git with a line in the project's `.gitignore` or in your
   global ignore file (`~/.config/git/ignore`), or commit it to share the plan.
 
-See `lua/core/memory.lua`, and "Memory" in `~/.config/orb/README.md`.
+See `lua/core/memory.lua`, `lua/core/tell.lua`, and "Memory" in `~/.config/orb/README.md`.
 
 ## Self-test
 
@@ -154,7 +164,7 @@ nvim --headless -c "luafile scripts/check.lua"
 
 Opens a sample file per language and checks that the servers attach, linters
 report, formatters resolve, no keymaps collide, the docs generate and every
-theme slot applies, and the Orb's memory and bubble work. Run it after
+theme slot applies, and the Orb's memory, bubble and telling it the next step work. Run it after
 changing the config or updating plugins.
 
 ## Adding a language

@@ -14,6 +14,7 @@
 --   * the orb's marks: error and warning signs become its code, and back
 --   * the Orb's memory: note, plan panel, write-on-quit
 --   * the speech bubble: reminders, never covers text, goes away
+--   * telling the Orb: Space o s / o u through a stand-in orb-say
 --   * the start screen opens
 -- Exit code 0 = everything passed. Java is slow the first time (jdtls builds
 -- its workspace), so allow a minute or two.
@@ -472,8 +473,9 @@ do
 
     -- 10. The Orb keys.
     report(vim.fn.maparg("<leader>on", "n") ~= "" and vim.fn.maparg("<leader>oe", "n") ~= ""
-            and vim.fn.maparg("<leader>op", "n") ~= "" and vim.fn.maparg("<leader>o", "n") == "",
-        "Orb keys: <leader>on, <leader>oe, <leader>op are mapped and <leader>o is not")
+            and vim.fn.maparg("<leader>op", "n") ~= "" and vim.fn.maparg("<leader>os", "n") ~= ""
+            and vim.fn.maparg("<leader>ou", "n") ~= "" and vim.fn.maparg("<leader>o", "n") == "",
+        "Orb keys: <leader>on, oe, op, os, ou are mapped and <leader>o is not")
 
     -- 11. The docs page lists the Orb group.
     local docs_ok = pcall(function() return require("core.docs").generate() end)
@@ -510,6 +512,135 @@ do
     bubble.clear("memory")
     report(written_and_said ~= nil and written_and_said:find("Last time: You were testing", 1, true) ~= nil,
         "memory: a missing note is written on request, then said", tostring(written_and_said))
+
+    -- Telling the Orb (lua/core/tell.lua), through stand-ins for orb-say.
+    -- The stand-in sees: --json -- ROOT TEXT (so $2 is "--", $3 is ROOT) or
+    -- --json --undo -- ROOT (so $2 is "--undo").
+    local tell = require("core.tell")
+    local cursor = require("core.cursor")
+    local say_args = stub_dir .. "/say-args"
+    put(stub_dir .. "/say", {
+        "#!/bin/sh",
+        "# Stand-in for orb-say: records its arguments, then answers like an add or an undo.",
+        'printf "%s\\n" "$@" > "' .. say_args .. '"',
+        'if [ "$2" = "--undo" ]; then',
+        "    echo '{\"ok\":true,\"changed\":true,\"kind\":\"undo\",\"line\":\"Undid it\",\"fallback\":false}'",
+        "else",
+        '    printf "# Plan\\n\\n## Next\\n\\n- [ ] stub step\\n- [ ] old step\\n" > "$3/.orb/plan.md"',
+        "    echo '{\"ok\":true,\"changed\":true,\"kind\":\"add\",\"line\":\"Next: stub step\",\"fallback\":false}'",
+        "fi",
+    })
+    put(stub_dir .. "/say-fail", { "#!/bin/sh", "echo 'orb-say: boom' >&2", "exit 1" })
+    vim.uv.fs_chmod(stub_dir .. "/say", 493)
+    vim.uv.fs_chmod(stub_dir .. "/say-fail", 493)
+    local told = make_dir(true)
+    put(told .. "/.orb/plan.md", { "# Plan", "", "## Next", "", "- [ ] old step" })
+    local old_say_env, real_say, heard = vim.env.ORB_SAY, memory.say, {}
+    vim.env.ORB_SAY = stub_dir .. "/say"
+    memory.say = function(text) table.insert(heard, text) return text end
+    local function reset_told()
+        vim.fn.delete(say_args)
+        heard = {}
+    end
+
+    -- S1. The plan panel shows the change; the cursor is busy meanwhile.
+    reset_told()
+    local pw, pb = memory.plan(told)
+    local started = tell.tell("Next time I'll test it", { root = told })
+    local busy_now = cursor.state() == "busy"
+    local in_panel = vim.wait(3000, function()
+        return vim.tbl_contains(vim.api.nvim_buf_get_lines(pb, 0, -1, false), "- [ ] stub step")
+    end, 20)
+    vim.wait(3000, function() return cursor.state() ~= "busy" and heard[1] ~= nil end, 20)
+    local panel_open = vim.api.nvim_win_is_valid(pw)
+    press("q")
+    report(started and busy_now and in_panel and cursor.state() ~= "busy" and heard[1] == "Next: stub step" and panel_open,
+        "tell: Space o s runs orb say, shows working, reloads the plan panel and says the line",
+        ("started=%s busy=%s panel=%s open=%s heard=%s"):format(tostring(started), tostring(busy_now),
+            tostring(in_panel), tostring(panel_open), tostring(heard[1])))
+
+    -- S2. The prompt asks "Tell the Orb: " and passes the sentence on.
+    reset_told()
+    local ui_input, seen = vim.ui.input, nil
+    vim.ui.input = function(o, cb) seen = o.prompt; cb("Next time I'll test it") end
+    tell.prompt({ root = told })
+    vim.wait(3000, function() return vim.fn.filereadable(say_args) == 1 and #heard > 0 end, 20)
+    local got = vim.fn.filereadable(say_args) == 1 and vim.fn.readfile(say_args) or {}
+    report(seen == "Tell the Orb: " and vim.deep_equal(got, { "--json", "--", told, "Next time I'll test it" }),
+        "tell: the prompt is \"Tell the Orb: \" and orb-say gets --json -- ROOT sentence", vim.inspect(got))
+
+    -- S3. Cancelling or an empty answer runs nothing.
+    reset_told()
+    vim.ui.input = function(_, cb) cb(nil) end
+    tell.prompt({ root = told })
+    vim.ui.input = function(_, cb) cb("   ") end
+    tell.prompt({ root = told })
+    vim.wait(300)
+    vim.ui.input = ui_input
+    report(vim.fn.filereadable(say_args) == 0 and #heard == 0, "tell: cancelling or an empty sentence does nothing")
+
+    -- S4. Undo.
+    reset_told()
+    tell.undo({ root = told })
+    vim.wait(3000, function() return heard[1] ~= nil end, 20)
+    got = vim.fn.filereadable(say_args) == 1 and vim.fn.readfile(say_args) or {}
+    report(vim.deep_equal(got, { "--json", "--undo", "--", told }) and heard[1] == "Undid it",
+        "tell: Space o u runs orb-say --undo and says the line", vim.inspect(got) .. " " .. tostring(heard[1]))
+
+    -- S5. A plan buffer with unsaved edits is refused.
+    reset_told()
+    local pbuf = vim.fn.bufadd(told .. "/.orb/plan.md")
+    vim.fn.bufload(pbuf)
+    vim.api.nvim_buf_set_lines(pbuf, -1, -1, false, { "- [ ] typing" })
+    local refused = tell.tell("x", { root = told })
+    vim.wait(300)
+    local refused_ok = refused == false and vim.fn.filereadable(say_args) == 0
+        and heard[1] == "The plan has unsaved changes: save it first. Nothing changed."
+    vim.api.nvim_buf_delete(pbuf, { force = true })
+    report(refused_ok, "tell: unsaved plan edits are never overwritten", tostring(heard[1]))
+
+    -- S6. A failing orb-say is said plainly and the cursor is not left busy.
+    reset_told()
+    vim.env.ORB_SAY = stub_dir .. "/say-fail"
+    tell.tell("anything", { root = told })
+    vim.wait(3000, function() return heard[1] ~= nil end, 20)
+    vim.wait(500, function() return cursor.state() ~= "busy" end, 20)
+    report(heard[1] == "The Orb could not do that: boom" and cursor.state() ~= "busy",
+        "tell: a failing orb-say is said plainly", tostring(heard[1]))
+
+    -- S7. The real bubble says the line.
+    reset_told()
+    memory.say = real_say
+    vim.env.ORB_SAY = stub_dir .. "/say"
+    vim.cmd("enew")
+    tell.tell("again", { root = told })
+    local in_bubble = vim.wait(3000, function() return bubble.showing() == "Next: stub step" end, 30)
+    bubble.clear("memory")
+    report(in_bubble, "tell: the result is said in the Orb's bubble")
+
+    -- S8. The real orb-say, when installed (no model: it adds in your words).
+    local say_tool = config_home .. "/orb/bin/orb-say"
+    if vim.fn.executable(say_tool) == 1 then
+        local real_proj, state = make_dir(true), make_dir(false)
+        local env = { XDG_STATE_HOME = state }
+        local added = vim.system({ say_tool, "--json", "--no-model", "--", real_proj, "write the tests" },
+            { text = true, env = env }):wait()
+        local ok_a, a = pcall(vim.json.decode, vim.trim(added.stdout or ""))
+        local added_ok = added.code == 0 and ok_a and a.kind == "add" and a.changed == true and a.fallback == true
+            and a.line == "Next: write the tests (added in your words: the model was not asked)"
+            and memory.next_item(real_proj) == "write the tests"
+        local undone = vim.system({ say_tool, "--json", "--undo", "--", real_proj }, { text = true, env = env }):wait()
+        local ok_u, u = pcall(vim.json.decode, vim.trim(undone.stdout or ""))
+        local undone_ok = undone.code == 0 and ok_u and u.line == 'Undid "Next: write the tests (added in your words: the model was not asked)"'
+            and vim.fn.filereadable(real_proj .. "/.orb/plan.md") == 0
+        report(added_ok and undone_ok, "orb-say: --no-model adds in your words, --undo takes it back",
+            vim.trim(tostring(added.stdout)) .. " | " .. tostring(added.stderr) .. " | " .. vim.trim(tostring(undone.stdout)))
+    else
+        report(true, "orb-say: --no-model adds in your words, --undo takes it back (orb-say not installed: skipped)")
+    end
+
+    vim.env.ORB_SAY = old_say_env
+    memory.say = real_say
 
     -- Put everything back: the theme slot, session state, buffers, cwd, the temporary projects.
     if slot_before then themes.apply(slot_before, { silent = true, temporary = true }) end

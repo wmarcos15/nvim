@@ -1,9 +1,9 @@
 -- lua/core/bubble.lua
 --
 -- The Orb's speech bubble: a small panel under the orb (top-right corner)
--- where it "says" short things. Today that means the "where you left off"
--- reminder from lua/core/memory.lua. It never covers text: it looks at the
--- screen and settles on an empty patch along the right edge (under the orb
+-- where it "says" short things. Today that means the reminder from
+-- memory.lua and what the Orb did to the plan (tell.lua). It never covers
+-- text: it looks at the screen and settles on an empty patch along the right edge (under the orb
 -- if it can), steps aside while you scroll or edit, and stays away if there
 -- is no room. It is only shown in normal mode, and only in a theme slot that
 -- has the orb (`orb = true` in lua/core/themes.lua): the bubble is the Orb's,

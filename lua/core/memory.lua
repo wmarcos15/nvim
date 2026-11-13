@@ -23,6 +23,8 @@
 --
 -- Keys: Space o n (say it), Space o e (edit the note in a small float),
 --       Space o p (the plan panel). Their definitions live in keymaps.lua.
+--       Space o s / Space o u (tell the Orb the next step / undo it:
+--       lua/core/tell.lua).
 --
 -- Nothing here ever waits on orb-note: quitting must stay instant.
 
@@ -166,6 +168,8 @@ local function say(text, asked)
     vim.notify(text)
     return text
 end
+-- tell.lua speaks the result of `orb say` through the same bubble.
+M.say = say
 
 function M.remind(opts)
     opts = opts or {}
