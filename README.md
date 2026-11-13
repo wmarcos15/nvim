@@ -10,7 +10,7 @@ reference. It is generated from the live config, so it is always current.
 
 | Language | Language server | Lint | Format (`Space c f`) | Debug (`Space d …`) | Run (`Space r r`) |
 |---|---|---|---|---|---|
-| C / C++ | clangd | clang-tidy (live), cppcheck + clang static analyzer (on save) | clang-format | codelldb | cmake, or the single file |
+| C / C++ | clangd | clang-tidy (live), cppcheck + quick static analyzer (on save), deep static analyzer (`Space c l`) | clang-format | codelldb | cmake, or the single file |
 | Python | pyright | ruff | ruff | debugpy | python (project venv if present) |
 | JavaScript / TypeScript | vtsls | eslint (projects with an ESLint config) | prettier | – | node / `npx tsx` |
 | Java | jdtls | jdtls | jdtls | – | `java File.java` |

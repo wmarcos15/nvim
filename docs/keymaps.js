@@ -38,6 +38,7 @@ window.NVIM_DOCS = {
     {"keys":"gO","modes":["n"],"desc":"Symbols in this file","group":"LSP","tags":"outline functions classes"},
     {"keys":"<leader>cf","modes":["n","x"],"desc":"Format file or selection","group":"Code","tags":"prettier clang-format ruff indent tidy"},
     {"keys":"<leader>cd","modes":["n"],"desc":"Show diagnostic under cursor","group":"Code","tags":"error message lint warning"},
+    {"keys":"<leader>cl","modes":["n"],"desc":"Deep lint: full static analyzer on this file (C / C++)","group":"Code","tags":"clang-tidy analyzer thorough slow bugs"},
     {"keys":"<leader>cw","modes":["n"],"desc":"Replace word under cursor in whole file","group":"Code","tags":"substitute rename"},
     {"keys":"]e","modes":["n"],"desc":"Next error","group":"Code","tags":"diagnostic"},
     {"keys":"[e","modes":["n"],"desc":"Previous error","group":"Code","tags":"diagnostic"},
