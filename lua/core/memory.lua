@@ -151,10 +151,39 @@ end
 --- Say the reminder. opts.root picks the project; opts.startup means "this
 --- is the automatic one": stay silent when there is nothing to say.
 --- Returns the text that was said, or nil.
+local writing = {} -- root -> true while orb-note is writing its first note
+
+--- Say `text` in the Orb's bubble. `asked` = you asked for it (a key), so if
+--- the bubble cannot show (no room, or not the Orb's theme) it becomes an
+--- ordinary message; a reminder at start just stays silent then.
+local function say(text, asked)
+    local ok, bubble = pcall(require, "core.bubble")
+    if ok then
+        bubble.say(text, nil, { source = "memory", timeout = 12000, until_insert = true, fallback = asked })
+        return text
+    end
+    if not asked then return nil end
+    vim.notify(text)
+    return text
+end
+
 function M.remind(opts)
     opts = opts or {}
     local root = opts.root or M.root()
     local text = M.reminder(root)
+    -- No note yet: in a git project the Orb writes one now (a few seconds,
+    -- in the background) and says it when it is there.
+    if not text and not opts.written and not writing[root]
+        and vim.uv.fs_stat(root .. "/.git") and vim.fn.executable(M.note_cmd()) == 1 then
+        writing[root] = true
+        vim.system({ M.note_cmd(), root }, { stdin = false, stdout = false, stderr = false },
+            vim.schedule_wrap(function()
+                writing[root] = nil
+                M.remind(vim.tbl_extend("force", opts, { root = root, written = true }))
+            end))
+        if not opts.startup then say("One moment: working out where you left off…", true) end
+        return nil
+    end
     if not text then
         if opts.startup then return nil end
         local item = M.next_item(root)
@@ -164,19 +193,7 @@ function M.remind(opts)
             text = "No note yet for " .. vim.fs.basename(root) .. ". Space o e writes one."
         end
     end
-    local ok, bubble = pcall(require, "core.bubble")
-    if ok then
-        bubble.say(text, nil, {
-            source = "memory",
-            timeout = 12000,
-            until_insert = true,
-            fallback = not opts.startup,
-        })
-        return text
-    end
-    if opts.startup then return nil end
-    vim.notify(text)
-    return text
+    return say(text, not opts.startup)
 end
 
 -- ── Floats: the note and the plan panel ────────────────────────────────

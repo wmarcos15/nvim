@@ -96,9 +96,11 @@ preview and the `orb` shell command); this config is one of its clients.
   while a run / build or a language server is working. See `lua/core/cursor.lua`.
 - A small copy of the dial sits in the sign column on every line with an
   error (red) or a warning (yellow). See `lua/core/marks.lua`.
-- The speech bubble under the orb carries a small cyan dial in its title (the
-  speaking mark) while the orb shows; elsewhere it is a plain panel titled
-  "orb". See `lua/core/bubble.lua`.
+- The speech bubble under the orb belongs to this slot only. It carries a
+  small cyan dial in its title (the speaking mark) while the orb shows; in
+  another terminal the title is the word "orb". In slots 1 and 3 there is no
+  bubble: what you ask for with `Space o n` arrives as an ordinary message,
+  and nothing is said at start. See `lua/core/bubble.lua`.
 - `:OrbInfo` shows whether everything it needs is in place. In iTerm or any
   other terminal, or without the orb project, slot 2 uses a solid background.
 
@@ -128,8 +130,10 @@ panel. In the panel `x` ticks or unticks the item under the cursor, `e` opens
 the file in a normal window, `q` or `Esc` closes it. Edits made in a float are
 saved when it closes.
 
-- **At start** the Orb says where you left off, for 12 seconds or until you
-  start typing. Nothing is said when the project has no note yet.
+- **At start** (slot 2) the Orb says where you left off, for 12 seconds or
+  until you start typing. A git project that has no note yet gets one
+  written there and then, which takes a few seconds; the same happens when
+  you ask with `Space o n`.
 - **On quit** the Orb writes the note in the background (`orb-note`, from
   `~/.config/orb`): in git projects, or in folders that already have `.orb/`.
   Quitting never waits for it. It uses git facts, or a local model if you set

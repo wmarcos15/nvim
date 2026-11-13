@@ -5,8 +5,10 @@
 -- reminder from lua/core/memory.lua. It never covers text: it looks at the
 -- screen and settles on an empty patch along the right edge (under the orb
 -- if it can), steps aside while you scroll or edit, and stays away if there
--- is no room. It is only shown in normal mode, and it works in every theme
--- slot and terminal: it does not depend on the orb being on screen.
+-- is no room. It is only shown in normal mode, and only in a theme slot that
+-- has the orb (`orb = true` in lua/core/themes.lua): the bubble is the Orb's,
+-- so the other themes do without it. In the Orb's slot it shows in any
+-- terminal, whether or not the orb itself is on screen.
 --
 -- The title carries the speaking mark: while the orb shows (marks.active()),
 -- two "▀" cells in the reserved colours #5ef1ef / #5ef1df, which the orb's
@@ -23,7 +25,8 @@
 --                      the newest message wins (default "user")
 --   opts.timeout       ms; the message removes itself
 --   opts.until_insert  the message goes away when you enter insert mode
---   opts.fallback      if there is no free spot, vim.notify(text) once
+--   opts.fallback      if the bubble cannot show (no free spot, or another
+--                      theme slot), vim.notify(text) once
 --
 -- The bubble closes by timeout, by InsertEnter (until_insert), by clear(), or
 -- when the note float or plan panel opens (memory.lua clears "memory"). While
@@ -157,14 +160,20 @@ end
 
 --- Put the bubble on screen for the current message (the screen must be up
 --- to date and the old bubble gone: see refresh()).
+--- Is the current theme slot one that has the orb?
+local function in_orb_slot()
+    local themes = require("core.themes")
+    return (themes.slots[themes.current] or {}).orb == true
+end
+
 local function open()
     local m = current()
     local mode = vim.api.nvim_get_mode().mode
     if not m or not mode:match("^n") then return end
     vim.cmd("redraw")
-    local at = place(m)
+    local at = in_orb_slot() and place(m) or nil
     if not at then
-        -- No free spot: tell the user the plain way, once per message.
+        -- Another theme, or no free spot: say it the plain way, once per message.
         if m.fallback and not m.notified then
             m.notified = true
             vim.notify(m.text)

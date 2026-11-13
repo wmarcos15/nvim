@@ -252,6 +252,9 @@ report(vim.fn.maparg("<leader>to", "n") == "", "<leader>to is not mapped")
 do
     local memory = require("core.memory")
     local bubble = require("core.bubble")
+    -- The bubble belongs to the Orb's theme slot: test it there.
+    local slot_before = themes.current
+    themes.apply(orb_slot, { silent = true, temporary = true })
     local start_cwd = vim.fn.getcwd()
     local made = {}
 
@@ -417,6 +420,21 @@ do
     report(crowded == nil and roomy == "hello", "bubble: never covers text",
         ("crowded=%s roomy=%s"):format(tostring(crowded), tostring(roomy)))
 
+    -- In any other theme slot there is no bubble: a message you asked for
+    -- arrives as an ordinary notification instead.
+    local other_slot = orb_slot == 1 and 2 or 1
+    themes.apply(other_slot, { silent = true, temporary = true })
+    local notified, real_notify = nil, vim.notify
+    vim.notify = function(msg) notified = msg end
+    bubble.say("elsewhere", nil, { source = "check", fallback = true })
+    vim.wait(400, function() return notified ~= nil end, 20)
+    vim.notify = real_notify
+    local hidden = bubble.showing() == nil
+    bubble.clear("check")
+    themes.apply(orb_slot, { silent = true, temporary = true })
+    report(hidden and notified == "elsewhere", "bubble: only in the Orb's theme slot",
+        ("slot %d: window=%s notified=%s"):format(other_slot, tostring(not hidden), tostring(notified)))
+
     -- 8. It goes away: on its timeout, on InsertEnter (reminders only), on clear.
     bubble.say("brief", nil, { source = "check", timeout = 400 })
     local appeared = vim.wait(250, function() return bubble.showing() ~= nil end, 20)
@@ -478,7 +496,23 @@ do
         report(true, "orb-note: --no-model --dry-run starts with the marker (orb-note not installed: skipped)")
     end
 
-    -- Put everything back: session state, buffers, cwd, the temporary projects.
+    -- A git project without a note: asking for the reminder has the Orb write
+    -- one (here a stand-in for orb-note does) and then say it.
+    local fresh = make_dir(true)
+    put(stub_dir .. "/writer", { "#!/bin/sh", 'mkdir -p "$1/.orb" && echo "You were testing." > "$1/.orb/now.md"' })
+    vim.uv.fs_chmod(stub_dir .. "/writer", 493) -- 0755
+    local note_cmd_before = vim.env.ORB_NOTE
+    vim.env.ORB_NOTE = stub_dir .. "/writer"
+    memory.remind({ root = fresh })
+    vim.wait(3000, function() return (bubble.showing() or ""):find("You were testing", 1, true) ~= nil end, 30)
+    local written_and_said = bubble.showing()
+    vim.env.ORB_NOTE = note_cmd_before
+    bubble.clear("memory")
+    report(written_and_said ~= nil and written_and_said:find("Last time: You were testing", 1, true) ~= nil,
+        "memory: a missing note is written on request, then said", tostring(written_and_said))
+
+    -- Put everything back: the theme slot, session state, buffers, cwd, the temporary projects.
+    if slot_before then themes.apply(slot_before, { silent = true, temporary = true }) end
     memory.reset_session()
     vim.cmd("cd " .. vim.fn.fnameescape(start_cwd))
     for _, b in ipairs(vim.api.nvim_list_bufs()) do
